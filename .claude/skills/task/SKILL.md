@@ -11,15 +11,23 @@ argument-hint: [summary]
 
 **If no argument was given**, ask the user what the task is about in one sentence.
 
-## Step 2: Gather details through conversation
+## Step 2: Gather details through guided proposals
 
-Ask the user for the following — you may ask all at once or conversationally depending on how much context you already have:
+Based on the summary and any available context (open files, CLAUDE.md, codebase), **draft a proposed description and acceptance criteria yourself**, then present them to the user for confirmation or adjustment. Do not ask open-ended questions — propose something concrete.
 
-1. **Short description**: 1–3 sentences explaining what this task is and why it exists.
-2. **Acceptance criteria**: A list of specific, testable conditions that define "done". Ask the user to describe what should be true when the task is complete, and help them turn vague answers into clear criteria.
-3. **Technical notes** *(optional)*: Implementation details, constraints, library choices, or references. Skip this section entirely if there are none.
+Structure your proposal like this:
 
-If the user's answers are vague or incomplete, ask a focused follow-up. Don't proceed to creation until the acceptance criteria are clear enough to be actionable.
+> **Description:** {your proposed 1–3 sentence description}
+>
+> **Acceptance criteria (proposed):**
+> - {criterion}
+> - …
+>
+> Does this look right? I can also add **Technical Notes** if there are implementation details to capture.
+
+If the summary is ambiguous, offer 2–3 short interpretations and ask which fits best before drafting the full proposal.
+
+Iterate based on user feedback until the criteria are clear and actionable.
 
 ## Step 3: Create the issue
 
