@@ -88,6 +88,36 @@ Self-hosted trip/vacation tracker. Primary deliverable: a rich map visualisation
 - Integration tests use a separate test database configured via `TEST_DATABASE_URL`; migrations are applied before the test run
 - E2E tests in `frontend/e2e/` using Playwright; run headless in CI
 
+## Local development
+
+### Backend
+
+The backend is a [uv](https://docs.astral.sh/uv/)-managed Python 3.12 project under `backend/`. uv handles the Python toolchain, virtualenv, and lockfile — there's no need to create a venv by hand.
+
+```sh
+cd backend
+uv sync                                    # install deps into .venv (first run only)
+uv run uvicorn app.main:app --reload       # http://localhost:8000 (Swagger at /docs)
+uv run pytest                              # full test suite
+uv run pytest tests/unit                   # unit tests only
+uv run pytest tests/integration            # integration tests only
+uv run ruff check .                        # lint
+uv run ruff format .                       # format
+uv run mypy --strict app                   # type-check
+```
+
+Integration tests require a Postgres test database reachable at `TEST_DATABASE_URL`; unit tests do not.
+
+### Pre-commit hooks
+
+`.pre-commit-config.yaml` at the repo root runs `ruff` (lint + format) and `mypy --strict` against staged `backend/**.py` files. Install once after cloning:
+
+```sh
+uvx pre-commit install                     # or `pip install pre-commit && pre-commit install`
+```
+
+Hooks then run automatically on every commit. To run them manually against the whole tree: `uvx pre-commit run --all-files`.
+
 ## Dev workflow
 
 Use the `/dev` skill to pick up a YouTrack task and implement it end-to-end.
