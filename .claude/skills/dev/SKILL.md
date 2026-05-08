@@ -72,3 +72,7 @@ PR body structure:
 ```
 
 Return the PR URL to the user once created.
+
+## Step 9: Link the PR back to YouTrack
+
+- Add a comment to the YouTrack issue with `mcp__youtrack__add_issue_comment`, body: `PR: {pr-url}`.
