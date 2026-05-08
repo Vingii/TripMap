@@ -108,6 +108,14 @@ uv run mypy --strict app                   # type-check
 
 Integration tests require a Postgres test database reachable at `TEST_DATABASE_URL`; unit tests do not.
 
+#### PyCharm
+
+Two shared run configurations live in `.idea/runConfigurations/`: **Backend (uvicorn)** and **Backend tests**. Both use the module SDK, so register the project interpreter once after `uv sync`:
+
+> Settings → Project → Python Interpreter → *Add Interpreter* → *Existing* → select `backend/.venv/bin/python`.
+
+The configs will then resolve automatically.
+
 ### Pre-commit hooks
 
 `.pre-commit-config.yaml` at the repo root runs `ruff` (lint + format) and `mypy --strict` against staged `backend/**.py` files. Install once after cloning:
