@@ -116,15 +116,32 @@ Two shared run configurations live in `.idea/runConfigurations/`: **Backend (uvi
 
 The configs will then resolve automatically.
 
+### Frontend
+
+The frontend is a Vite-driven Vue 3 + TypeScript project under `frontend/`. Node 22+ and npm are required.
+
+```sh
+cd frontend
+npm install                                # install deps (first run only)
+npm run dev                                # http://localhost:5173
+npm run build                              # type-check + production build → dist/
+npm run preview                            # preview the production build
+npm run lint                               # eslint + prettier --check
+npm run lint:fix                           # eslint --fix + prettier --write
+npm run format                             # prettier --write only
+```
+
 ### Pre-commit hooks
 
-`.pre-commit-config.yaml` at the repo root runs `ruff` (lint + format) and `mypy --strict` against staged `backend/**.py` files. Install once after cloning:
+`.pre-commit-config.yaml` at the repo root runs `ruff` (lint + format) and `mypy --strict` against staged `backend/**.py` files, and `eslint --fix` against staged `**/*.{ts,vue}` files. Install once after cloning:
 
 ```sh
 uvx pre-commit install                     # or `pip install pre-commit && pre-commit install`
 ```
 
 Hooks then run automatically on every commit. To run them manually against the whole tree: `uvx pre-commit run --all-files`.
+
+The eslint hook resolves the binary at `frontend/node_modules/.bin/eslint`, so run `npm install` inside `frontend/` before your first commit that touches frontend files.
 
 ## Dev workflow
 

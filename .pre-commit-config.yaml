@@ -17,3 +17,11 @@ repos:
           - pydantic>=2.9
           - pydantic-settings>=2.5
           - fastapi>=0.115
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: frontend/node_modules/.bin/eslint --fix
+        language: system
+        files: \.(ts|vue)$
+        pass_filenames: true
