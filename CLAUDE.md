@@ -108,14 +108,6 @@ uv run mypy --strict app                   # type-check
 
 Integration tests require a Postgres test database reachable at `TEST_DATABASE_URL`; unit tests do not.
 
-#### PyCharm
-
-Two shared run configurations live in `.idea/runConfigurations/`: **Backend (uvicorn)** and **Backend tests**. Both use the module SDK, so register the project interpreter once after `uv sync`:
-
-> Settings → Project → Python Interpreter → *Add Interpreter* → *Existing* → select `backend/.venv/bin/python`.
-
-The configs will then resolve automatically.
-
 ### Frontend
 
 The frontend is a Vite-driven Vue 3 + TypeScript project under `frontend/`. Node 22+ and npm are required.
@@ -130,6 +122,21 @@ npm run lint                               # eslint + prettier --check
 npm run lint:fix                           # eslint --fix + prettier --write
 npm run format                             # prettier --write only
 ```
+
+#### PyCharm
+
+Shared run configurations live in `.idea/runConfigurations/`:
+
+- **Backend (uvicorn)** — runs `uvicorn app.main:app --reload`
+- **Backend tests** — runs the `pytest` suite under `backend/tests/`
+- **Frontend (npm dev)** — runs `npm run dev` against `frontend/package.json`
+- **TripMap (full stack)** — compound config that launches both **Backend (uvicorn)** and **Frontend (npm dev)** together
+
+The Python configs use the module SDK, so register the project interpreter once after `uv sync`:
+
+> Settings → Project → Python Interpreter → *Add Interpreter* → *Existing* → select `backend/.venv/bin/python`.
+
+The npm config uses the project Node interpreter, which PyCharm picks up automatically once a Node executable is configured under *Settings → Languages & Frameworks → Node.js*.
 
 ### Pre-commit hooks
 
