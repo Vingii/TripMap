@@ -10,7 +10,7 @@ Self-hosted trip/vacation tracker. Primary deliverable: a rich map visualisation
 | Frontend | Vue 3, TypeScript, Vite, Vue Router 4, Pinia, Leaflet.js, Tailwind CSS |
 | Database | PostgreSQL 16 + PostGIS 3 |
 | Auth | OIDC via Authentik (Authorization Code + PKCE) |
-| Container | Docker (multi-stage), Docker Compose |
+| Container | Docker (multi-stage), Docker Compose — single image serves built SPA + API |
 | CI/CD | GitHub Actions — pytest + Vitest on PRs; Docker Hub publish on main |
 | E2E | Playwright |
 
@@ -67,10 +67,11 @@ Self-hosted trip/vacation tracker. Primary deliverable: a rich map visualisation
 
 ## API design
 
+- **Prefix**: all API routes (including docs) live under `/api` so they don't collide with the SPA's client-side routes when the built frontend is served from FastAPI. Examples: `/api/health`, `/api/locations`, `/api/albums/{id}/locations`. Swagger lives at `/api/docs`.
 - **Bare objects**: list endpoints return `[…]`, single-object endpoints return `{…}`; no envelope wrapper
 - **Errors**: HTTP status codes + FastAPI's default `{"detail": "…"}` body
-- **Route naming**: plural nouns, kebab-case paths — `/locations`, `/albums/{id}/locations`
-- **Auth**: all endpoints require a valid JWT bearer token except `GET /health` and `POST /auth/*`
+- **Route naming**: plural nouns, kebab-case paths under `/api` — e.g. `/api/locations`, `/api/albums/{id}/locations`
+- **Auth**: all endpoints require a valid JWT bearer token except `GET /api/health` and `POST /api/auth/*`
 
 ## Database conventions
 

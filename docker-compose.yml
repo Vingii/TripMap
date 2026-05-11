@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: tripmap:dev
+    container_name: tripmap
+    ports:
+      - "8000:8000"
+    environment:
+      STATIC_DIR: /app/static
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8000"]'
+    volumes:
+      - ./backend/app:/app/app:ro
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+.gitmodules
+.github
+
+# Editors / IDEs
+.idea
+.vscode
+
+# Claude / tooling
+.claude
+.mcp.json
+.pre-commit-config.yaml
+
+# Python build/cache
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Node
+**/node_modules
+
+# Frontend build artifacts (we rebuild inside the image)
+frontend/dist
+
+# Tests (not needed at runtime)
+backend/tests
+frontend/e2e
+
+# Local env / docs / misc
+.env
+.env.*
+*.md
+LICENSE
+docker-compose*.yml
+Dockerfile
+.dockerignore
