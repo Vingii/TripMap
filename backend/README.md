@@ -18,8 +18,8 @@ uv sync
 uv run uvicorn app.main:app --reload
 ```
 
-Swagger UI: http://localhost:8000/docs
-Health check: http://localhost:8000/health
+Swagger UI: http://localhost:8000/api/docs
+Health check: http://localhost:8000/api/health
 
 ## Quality checks
 
