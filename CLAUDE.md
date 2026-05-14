@@ -99,6 +99,7 @@ The backend is a [uv](https://docs.astral.sh/uv/)-managed Python 3.12 project un
 cd backend
 uv sync                                    # install deps into .venv (first run only)
 uv run uvicorn app.main:app --reload       # http://localhost:8000 (Swagger at /docs)
+make migrate                               # apply pending Alembic migrations (alembic upgrade head)
 uv run pytest                              # full test suite
 uv run pytest tests/unit                   # unit tests only
 uv run pytest tests/integration            # integration tests only
@@ -108,6 +109,8 @@ uv run mypy --strict app                   # type-check
 ```
 
 Integration tests require a Postgres test database reachable at `TEST_DATABASE_URL`; unit tests do not.
+
+The application database is read from `DATABASE_URL` (defaults to `postgresql+asyncpg://tripmap:tripmap@localhost:5432/tripmap`). Start the `db` service from the repo root with `docker compose up -d db`, then run `make migrate` to apply schema migrations.
 
 ### Frontend
 

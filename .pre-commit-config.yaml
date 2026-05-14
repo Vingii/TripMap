@@ -17,6 +17,8 @@ repos:
           - pydantic>=2.9
           - pydantic-settings>=2.5
           - fastapi>=0.115
+          - sqlalchemy>=2.0
+          - geoalchemy2>=0.15
   - repo: local
     hooks:
       - id: eslint

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
     static_dir: Path | None = None
+    database_url: str = "postgresql+asyncpg://tripmap:tripmap@localhost:5432/tripmap"
 
 
 @lru_cache
