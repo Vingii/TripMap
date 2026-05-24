@@ -11,7 +11,7 @@ Self-hosted trip/vacation tracker. Primary deliverable: a rich map visualisation
 | Database | PostgreSQL 16 + PostGIS 3 |
 | Auth | OIDC via Authentik (Authorization Code + PKCE) |
 | Container | Docker (multi-stage), Docker Compose — single image serves built SPA + API |
-| CI/CD | GitHub Actions — pytest + Vitest on PRs; Docker Hub publish on main |
+| CI/CD | GitHub Actions — pytest + Vitest on PRs; release-please + Docker Hub publish on tag |
 | E2E | Playwright |
 
 ## Repository layout
@@ -159,3 +159,20 @@ The eslint hook resolves the binary at `frontend/node_modules/.bin/eslint`, so r
 Use the `/dev` skill to pick up a YouTrack task and implement it end-to-end.
 Branch format: `TM-{ID}-{slug}` — e.g. `TM-14-location-crud`.
 PRs target `main`; one feature or fix per branch.
+
+## Releases
+
+Versioning and changelog generation are driven by [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`, `release-please-config.json`, `.release-please-manifest.json`). The flow:
+
+1. Push to `main` runs CI. On success, the `Release` workflow runs release-please.
+2. release-please scans Conventional Commits since the last tag and opens (or updates) a release PR that bumps the version in `.release-please-manifest.json` and appends to `CHANGELOG.md`. The `version` fields in `backend/pyproject.toml` and `frontend/package.json` are intentionally **not** tracked — neither is published as a package, and bumping them would invalidate `uv.lock` / `package-lock.json` on every release. Treat those literals as cosmetic; the manifest + git tag are the source of truth. If the version needs to be visible at runtime, inject it as a build arg during Docker build.
+3. Merging the release PR tags `vX.Y.Z`, publishes a GitHub Release, and pushes `vingii/tripmap:{latest,<sha>,vX.Y.Z}` to Docker Hub.
+
+**Commit message format**: PRs are squash-merged, so the **PR title is the commit message release-please sees**. PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat: …` — minor bump, appears under "Features"
+- `fix: …` — patch bump, appears under "Bug Fixes"
+- `chore: …`, `docs: …`, `refactor: …`, `test: …`, `ci: …` — no version bump by default
+- `feat!: …` or a `BREAKING CHANGE:` footer — major bump
+
+Keep the YouTrack ID in the title: `feat: continuous deployment (TM-3)`. Individual commits on the branch can stay as `TM-{ID}: …` — only the squash-merge commit (PR title) needs to be Conventional.

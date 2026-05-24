@@ -1,6 +1,6 @@
 [project]
 name = "tripmap-backend"
-version = "0.1.0"
+version = "0.0.0"
 description = "TripMap backend — FastAPI service for self-hosted trip/vacation tracking."
 requires-python = ">=3.12,<3.13"
 dependencies = [
