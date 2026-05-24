@@ -55,7 +55,14 @@ argument-hint: [task-id]
 
 Use `gh pr create` targeting `main`. Pass the body via heredoc to preserve formatting.
 
-PR title: `{TASK-ID}: {task summary}`
+**PR title format**: Conventional Commits, with the YouTrack ID in parentheses at the end. PRs are squash-merged, so the PR title becomes the commit release-please parses for changelog and version bumps.
+
+- `feat: {short summary} ({TASK-ID})` — new user-facing capability (minor bump)
+- `fix: {short summary} ({TASK-ID})` — bug fix (patch bump)
+- `chore|docs|refactor|test|ci: {short summary} ({TASK-ID})` — no version bump
+- Append `!` or include `BREAKING CHANGE:` in the body for breaking changes (major bump)
+
+Pick the type from the YouTrack issue's nature (Feature → `feat`, Bug → `fix`, etc.), not from how the change happens to be implemented.
 
 PR body structure:
 ```
