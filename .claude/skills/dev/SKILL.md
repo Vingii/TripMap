@@ -55,16 +55,42 @@ argument-hint: [task-id]
 
 Use `gh pr create` targeting `main`. Pass the body via heredoc to preserve formatting.
 
-**PR title format**: Conventional Commits, with the YouTrack ID in parentheses at the end. PRs are squash-merged, so the PR title becomes the commit release-please parses for changelog and version bumps.
+PRs are squash-merged with GitHub configured to use the PR title and description as the commit message. **The PR title and body become the final commit on `main`** — so both must be shaped as a Conventional Commit, not as a review document.
 
-- `feat: {short summary} ({TASK-ID})` — new user-facing capability (minor bump)
-- `fix: {short summary} ({TASK-ID})` — bug fix (patch bump)
-- `chore|docs|refactor|test|ci: {short summary} ({TASK-ID})` — no version bump
-- Append `!` or include `BREAKING CHANGE:` in the body for breaking changes (major bump)
+### PR title
 
-Pick the type from the YouTrack issue's nature (Feature → `feat`, Bug → `fix`, etc.), not from how the change happens to be implemented.
+`{type}: {short summary} ({TASK-ID})` — Conventional Commits with the YouTrack ID in parentheses at the end:
 
-PR body structure:
+- `feat:` — new user-facing capability (minor bump)
+- `fix:` — bug fix (patch bump)
+- `chore|docs|refactor|test|ci:` — no version bump
+- `feat!:` (or any `<type>!:`) or a `BREAKING CHANGE:` footer in the body → major bump
+
+Pick the type from the YouTrack issue's nature (Feature → `feat`, Bug → `fix`), not from how the change happens to be implemented.
+
+### PR body — Conventional Commit body + footers
+
+Plain prose, no markdown headings. 1–2 short paragraphs explaining the **why** of the change (not the what — the diff covers that). Then a blank line, then footers. Keep the whole body under ~10 lines so the commit log stays readable.
+
+```
+{1–2 paragraphs explaining why this change exists — the constraint, decision, or trade-off behind it. No headings, no bullet lists.}
+
+Refs: {TASK-ID}
+```
+
+Additional footers when applicable:
+- `BREAKING CHANGE: {what breaks and the migration path}` — required for any breaking change
+- `Co-Authored-By: …` — for co-authors
+
+Do **not** put Summary/Test plan/Task description sections in the PR body — those are review aids and belong in PR comments (Step 9), not in git history.
+
+Return the PR URL to the user once created.
+
+## Step 9: Add review and context comments
+
+After the PR is created, add two comments with `gh pr comment {pr-number} --body "$(cat <<'EOF' … EOF)"`. These are for the reviewer and for preserving task context on the GitHub side; they are not part of git history.
+
+**Review aid comment:**
 ```
 ## Summary
 {1–3 bullet points covering what was done and any notable decisions or trade-offs}
@@ -72,14 +98,15 @@ PR body structure:
 ## Test plan
 {Bulleted checklist of how to manually verify the change}
 
-## Task description
-{Full task description from YouTrack, reproduced verbatim}
-
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-Return the PR URL to the user once created.
+**Task description comment:**
+```
+## Task description
+{Full task description from YouTrack, reproduced verbatim}
+```
 
-## Step 9: Link the PR back to YouTrack
+## Step 10: Link the PR back to YouTrack
 
 - Add a comment to the YouTrack issue with `mcp__youtrack__add_issue_comment`, body: `PR: {pr-url}`.
