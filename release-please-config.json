@@ -6,19 +6,7 @@
   "packages": {
     ".": {
       "package-name": "tripmap",
-      "changelog-path": "CHANGELOG.md",
-      "extra-files": [
-        {
-          "type": "json",
-          "path": "frontend/package.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "toml",
-          "path": "backend/pyproject.toml",
-          "jsonpath": "$.project.version"
-        }
-      ]
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }
