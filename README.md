@@ -19,6 +19,19 @@ Self-hosted trip and vacation tracker built around a rich, interactive map. Log 
 | Auth     | OIDC via Authentik (Authorization Code + PKCE)                      |
 | Packaging | Docker (multi-stage) + Docker Compose — one image serves the SPA and API |
 
+## Deployment
+
+The published image (`vingii/tripmap:latest`) bundles the FastAPI backend and the built SPA in a single container. `docker-compose.prod.yml` runs it alongside a PostGIS database.
+
+```sh
+cp .env.example .env                                    # fill in POSTGRES_PASSWORD, CORS_ORIGINS, …
+docker compose -f docker-compose.prod.yml up -d         # pulls vingii/tripmap and starts the stack
+docker compose -f docker-compose.prod.yml exec app \
+    alembic upgrade head                                # apply schema migrations on first boot / upgrades
+```
+
+Database data persists in the `tripmap-db-data` named volume; container logs are capped at 5×10 MB per service. Pin a specific image tag by setting `TRIPMAP_IMAGE=vingii/tripmap:vX.Y.Z` in `.env` for reproducible deploys. HTTPS termination is intentionally out of scope — run your own reverse proxy (Caddy, Traefik, nginx) in front of the app port if you need TLS.
+
 ## License
 
 [MIT](LICENSE)
