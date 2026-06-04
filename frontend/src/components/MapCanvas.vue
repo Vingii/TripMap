@@ -22,6 +22,7 @@ onMounted(() => {
     zoom: store.zoom,
     zoomControl: true,
   })
+  map.attributionControl.setPrefix(false)
 
   L.tileLayer(OSM_TILE_URL, {
     maxZoom: 19,
