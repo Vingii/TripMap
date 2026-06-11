@@ -62,23 +62,26 @@ function select(place: GeocodeResult): void {
       v-model="query"
       type="search"
       placeholder="Search for a place…"
-      class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none"
+      class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-500 dark:focus:ring-slate-700"
       @keydown.escape="open = false"
     />
     <ul
       v-if="open && (results.length || error || (!loading && query.trim()))"
-      class="absolute z-[1000] mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg"
+      class="absolute z-[1000] mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
     >
-      <li v-if="error" class="px-3 py-2 text-slate-500">
+      <li v-if="error" class="px-3 py-2 text-slate-500 dark:text-slate-400">
         Search is unavailable right now.
       </li>
-      <li v-else-if="!results.length" class="px-3 py-2 text-slate-500">
+      <li
+        v-else-if="!results.length"
+        class="px-3 py-2 text-slate-500 dark:text-slate-400"
+      >
         No matches found.
       </li>
       <li
         v-for="place in results"
         :key="`${place.lat},${place.lng}`"
-        class="cursor-pointer truncate px-3 py-2 hover:bg-slate-100"
+        class="cursor-pointer truncate px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-700"
         @mousedown.prevent="select(place)"
       >
         {{ place.name }}
