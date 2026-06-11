@@ -8,6 +8,7 @@ SEARCH_PAYLOAD = [
         "display_name": "Berlin, Germany",
         "lat": "52.5170365",
         "lon": "13.3888599",
+        "boundingbox": ["52.3382448", "52.6755087", "13.0883450", "13.7611609"],
         "address": {"country_code": "de"},
     },
     {
@@ -37,6 +38,10 @@ async def test_search_maps_and_ranks_results() -> None:
     assert results[0].lat == pytest.approx(52.5170365)
     assert results[0].lng == pytest.approx(13.3888599)
     assert results[0].country_code == "DE"  # uppercased from Nominatim's lowercase
+    assert results[0].bounding_box is not None
+    assert results[0].bounding_box.south == pytest.approx(52.3382448)
+    assert results[0].bounding_box.east == pytest.approx(13.7611609)
+    assert results[1].bounding_box is None  # absent when Nominatim omits it
 
 
 async def test_search_skips_entries_without_coordinates() -> None:

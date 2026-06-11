@@ -7,7 +7,7 @@ import type { GeocodeResult } from '../api/geocode'
 const mapRef = useTemplateRef<InstanceType<typeof MapCanvas>>('map')
 
 function goTo(place: GeocodeResult): void {
-  mapRef.value?.flyTo(place.lat, place.lng)
+  mapRef.value?.flyToPlace(place.lat, place.lng, place.bounding_box)
 }
 </script>
 

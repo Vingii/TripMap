@@ -1,10 +1,18 @@
 // All HTTP calls live under src/api/ — components and stores import from here.
 
+export interface BoundingBox {
+  south: number
+  north: number
+  west: number
+  east: number
+}
+
 export interface GeocodeResult {
   name: string
   lat: number
   lng: number
   country_code: string | null
+  bounding_box: BoundingBox | null
 }
 
 /**

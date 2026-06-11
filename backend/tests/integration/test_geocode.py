@@ -40,6 +40,7 @@ async def test_search_returns_ranked_matches() -> None:
                     "display_name": "Berlin, Germany",
                     "lat": "52.52",
                     "lon": "13.405",
+                    "boundingbox": ["52.33", "52.67", "13.08", "13.76"],
                     "address": {"country_code": "de"},
                 }
             ],
@@ -50,7 +51,18 @@ async def test_search_returns_ranked_matches() -> None:
 
     assert response.status_code == 200
     assert response.json() == [
-        {"name": "Berlin, Germany", "lat": 52.52, "lng": 13.405, "country_code": "DE"}
+        {
+            "name": "Berlin, Germany",
+            "lat": 52.52,
+            "lng": 13.405,
+            "country_code": "DE",
+            "bounding_box": {
+                "south": 52.33,
+                "north": 52.67,
+                "west": 13.08,
+                "east": 13.76,
+            },
+        }
     ]
 
 

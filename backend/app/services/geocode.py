@@ -13,7 +13,7 @@ import time
 import httpx
 
 from app.config import Settings
-from app.schemas.geocode import GeocodeResult, ReverseGeocodeResult
+from app.schemas.geocode import BoundingBox, GeocodeResult, ReverseGeocodeResult
 
 
 class GeocodeError(Exception):
@@ -119,4 +119,17 @@ def _to_result(item: dict[str, object]) -> GeocodeResult:
         lat=float(item["lat"]),  # type: ignore[arg-type]  # Nominatim sends numeric strings
         lng=float(item["lon"]),  # type: ignore[arg-type]
         country_code=_country_code(item),
+        bounding_box=_bounding_box(item),
     )
+
+
+def _bounding_box(item: dict[str, object]) -> BoundingBox | None:
+    # Nominatim's boundingbox is [south, north, west, east] as numeric strings.
+    raw = item.get("boundingbox")
+    if not isinstance(raw, list) or len(raw) != 4:
+        return None
+    try:
+        south, north, west, east = (float(v) for v in raw)
+    except (TypeError, ValueError):
+        return None
+    return BoundingBox(south=south, north=north, west=west, east=east)
