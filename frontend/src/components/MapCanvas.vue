@@ -22,6 +22,8 @@ onMounted(() => {
     zoom: store.zoom,
     zoomControl: true,
   })
+  // Keep the zoom buttons clear of the top-left search overlay.
+  map.zoomControl.setPosition('topright')
   map.attributionControl.setPrefix(false)
 
   L.tileLayer(OSM_TILE_URL, {
@@ -47,6 +49,30 @@ onBeforeUnmount(() => {
   map?.remove()
   map = null
 })
+
+// Fallback zoom for the rare result that carries no bounding box.
+const FALLBACK_ZOOM = 11
+
+interface Bounds {
+  south: number
+  west: number
+  north: number
+  east: number
+}
+
+function flyToPlace(lat: number, lng: number, bounds: Bounds | null): void {
+  if (!map) return
+  if (bounds) {
+    map.flyToBounds([
+      [bounds.south, bounds.west],
+      [bounds.north, bounds.east],
+    ])
+  } else {
+    map.flyTo([lat, lng], FALLBACK_ZOOM)
+  }
+}
+
+defineExpose({ flyToPlace })
 </script>
 
 <template>

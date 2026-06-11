@@ -19,6 +19,7 @@ repos:
           - fastapi>=0.115
           - sqlalchemy>=2.0
           - geoalchemy2>=0.15
+          - httpx>=0.27
   - repo: local
     hooks:
       - id: eslint

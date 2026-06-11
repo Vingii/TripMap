@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -6,7 +8,17 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import health
+from app.routers import geocode, health
+from app.services.geocode import create_geocode_service
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.geocode_service = create_geocode_service(get_settings())
+    try:
+        yield
+    finally:
+        await app.state.geocode_service.aclose()
 
 
 def create_app() -> FastAPI:
@@ -17,6 +29,7 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
+        lifespan=_lifespan,
     )
 
     app.add_middleware(
@@ -28,6 +41,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(geocode.router, prefix="/api")
     _mount_frontend(app, settings.static_dir)
     return app
 
