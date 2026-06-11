@@ -3,6 +3,6 @@
 <template>
   <section class="mx-auto w-full max-w-5xl space-y-2 px-6 py-8">
     <h1 class="text-2xl font-semibold">Albums</h1>
-    <p class="text-slate-600">Albums view placeholder.</p>
+    <p class="text-slate-600 dark:text-slate-400">Albums view placeholder.</p>
   </section>
 </template>

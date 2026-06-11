@@ -3,7 +3,9 @@ import AppNav from './components/AppNav.vue'
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-slate-50 text-slate-900">
+  <div
+    class="flex h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+  >
     <app-nav />
     <main class="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <router-view />
