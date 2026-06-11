@@ -47,6 +47,14 @@ onBeforeUnmount(() => {
   map?.remove()
   map = null
 })
+
+const FLY_TO_ZOOM = 11
+
+function flyTo(lat: number, lng: number): void {
+  map?.flyTo([lat, lng], FLY_TO_ZOOM)
+}
+
+defineExpose({ flyTo })
 </script>
 
 <template>
