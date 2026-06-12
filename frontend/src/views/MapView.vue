@@ -13,6 +13,8 @@ const mapRef = useTemplateRef<InstanceType<typeof MapCanvas>>('map')
 
 const selected = ref<Location | null>(null)
 const actionError = ref<string | null>(null)
+// Most recent name-search match; "+ Add location" pre-fills from it.
+const lastSearch = ref<GeocodeResult | null>(null)
 
 interface FormState {
   open: boolean
@@ -43,6 +45,7 @@ function openCreate(
   name: string,
   lat: number | null,
   lng: number | null,
+  countryCode: string | null = null,
 ): void {
   selected.value = null
   Object.assign(form, {
@@ -52,25 +55,30 @@ function openCreate(
     name,
     lat,
     lng,
-    countryCode: null,
+    countryCode,
   })
 }
 
-// Map click → create with coordinates pre-filled; the server reverse-geocodes.
+// Map click → coordinates pre-filled, name left blank; the server reverse-geocodes.
 function onMapClick(coords: { lat: number; lng: number }): void {
   openCreate('', coords.lat, coords.lng)
 }
 
-// "Add location" → create with empty manual-entry fields.
+// "+ Add location" → pre-fill name + coords from the last search if there was
+// one; otherwise an empty form for manual entry.
 function onAddManual(): void {
-  openCreate('', null, null)
+  const place = lastSearch.value
+  if (place) {
+    openCreate(place.name, place.lat, place.lng, place.country_code)
+  } else {
+    openCreate('', null, null)
+  }
 }
 
-// Name search → fly to the match and open create pre-filled from it.
+// Name search → only fly to the match; remember it for "+ Add location".
 function onSearchSelect(place: GeocodeResult): void {
   mapRef.value?.flyToPlace(place.lat, place.lng, place.bounding_box)
-  openCreate(place.name, place.lat, place.lng)
-  form.countryCode = place.country_code
+  lastSearch.value = place
 }
 
 function onMarkerClick(location: Location): void {

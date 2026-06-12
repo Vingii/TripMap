@@ -25,6 +25,10 @@ RUN groupadd --system app \
 WORKDIR /app
 COPY --from=backend /app/.venv /app/.venv
 COPY --chown=app:app backend/app /app/app
+# Alembic config + migrations ship in the image so the entrypoint can apply them.
+COPY --chown=app:app backend/alembic.ini /app/alembic.ini
+COPY --chown=app:app backend/alembic /app/alembic
+COPY --chown=app:app --chmod=755 backend/docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY --from=frontend --chown=app:app /build/dist /app/static
 USER app
 ENV PATH="/app/.venv/bin:$PATH" \
@@ -32,4 +36,6 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     STATIC_DIR=/app/static
 EXPOSE 8000
+# Run migrations, then exec the CMD (or any compose `command:` override).
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
