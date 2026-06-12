@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Vingii/TripMap/compare/v1.1.0...v1.2.0) (2026-06-12)
+
+
+### Features
+
+* location CRUD (TM-14) ([#16](https://github.com/Vingii/TripMap/issues/16)) ([ee24131](https://github.com/Vingii/TripMap/commit/ee24131ff6e3c222424ec4a43167b0377409306b))
+
 ## [1.1.0](https://github.com/Vingii/TripMap/compare/v1.0.0...v1.1.0) (2026-06-11)
 
 
