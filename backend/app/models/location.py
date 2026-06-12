@@ -16,3 +16,6 @@ class Location(TimestampMixin, Base):
     coordinates: Mapped[str] = mapped_column(
         Geography(geometry_type="POINT", srid=4326), nullable=False
     )
+    # ISO 3166-1 alpha-2, derived from Nominatim reverse geocoding at creation time.
+    # Nullable: reverse geocoding can fail or return no country (e.g. open ocean).
+    country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)

@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
+import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useMapStore } from '../stores/map'
+import type { Location } from '../api/locations'
+
+const props = defineProps<{ locations: Location[] }>()
+const emit = defineEmits<{
+  mapClick: [coords: { lat: number; lng: number }]
+  markerClick: [location: Location]
+}>()
 
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const OSM_ATTRIBUTION =
@@ -12,7 +19,30 @@ const store = useMapStore()
 const containerEl = useTemplateRef<HTMLDivElement>('container')
 
 let map: L.Map | null = null
+let markerLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
+
+function renderMarkers(): void {
+  if (!map || !markerLayer) return
+  markerLayer.clearLayers()
+  for (const location of props.locations) {
+    L.circleMarker([location.lat, location.lng], {
+      radius: 7,
+      weight: 2,
+      color: '#1e293b',
+      fillColor: '#6366f1',
+      fillOpacity: 0.9,
+    })
+      .bindTooltip(location.name)
+      .on('click', (event: L.LeafletMouseEvent) => {
+        // Stop the click bubbling to the map, which would open the "new
+        // location" form on top of the marker we actually clicked.
+        L.DomEvent.stopPropagation(event)
+        emit('markerClick', location)
+      })
+      .addTo(markerLayer)
+  }
+}
 
 onMounted(() => {
   if (!containerEl.value) return
@@ -31,6 +61,13 @@ onMounted(() => {
     attribution: OSM_ATTRIBUTION,
   }).addTo(map)
 
+  markerLayer = L.layerGroup().addTo(map)
+  renderMarkers()
+
+  map.on('click', (event: L.LeafletMouseEvent) => {
+    emit('mapClick', { lat: event.latlng.lat, lng: event.latlng.lng })
+  })
+
   const persist = (): void => {
     if (!map) return
     const c = map.getCenter()
@@ -43,11 +80,14 @@ onMounted(() => {
   resizeObserver.observe(containerEl.value)
 })
 
+watch(() => props.locations, renderMarkers)
+
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
   map?.remove()
   map = null
+  markerLayer = null
 })
 
 // Fallback zoom for the rare result that carries no bounding box.
