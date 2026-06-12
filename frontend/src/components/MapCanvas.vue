@@ -34,7 +34,12 @@ function renderMarkers(): void {
       fillOpacity: 0.9,
     })
       .bindTooltip(location.name)
-      .on('click', () => emit('markerClick', location))
+      .on('click', (event: L.LeafletMouseEvent) => {
+        // Stop the click bubbling to the map, which would open the "new
+        // location" form on top of the marker we actually clicked.
+        L.DomEvent.stopPropagation(event)
+        emit('markerClick', location)
+      })
       .addTo(markerLayer)
   }
 }
