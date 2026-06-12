@@ -16,6 +16,20 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: tripmap
+          POSTGRES_PASSWORD: tripmap
+          POSTGRES_DB: tripmap_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tripmap"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v6
 
@@ -42,6 +56,8 @@ jobs:
 
       - name: Pytest
         run: uv run pytest
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://tripmap:tripmap@localhost:5432/tripmap_test
 
   frontend:
     name: Frontend (Node 22)

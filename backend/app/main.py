@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import geocode, health
+from app.routers import geocode, health, locations
 from app.services.geocode import create_geocode_service
 
 
@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/api")
     app.include_router(geocode.router, prefix="/api")
+    app.include_router(locations.router, prefix="/api")
     _mount_frontend(app, settings.static_dir)
     return app
 
