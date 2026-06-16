@@ -2,21 +2,29 @@
 import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MapCanvas from '../components/MapCanvas.vue'
+import GlobeCanvas from '../components/GlobeCanvas.vue'
 import LocationSearch from '../components/LocationSearch.vue'
 import LocationForm from '../components/LocationForm.vue'
 import LocationPanel from '../components/LocationPanel.vue'
 import { useLocationsStore } from '../stores/locations'
 import { useVisitedStore } from '../stores/visited'
 import { isMapFilter, useMapFilterStore } from '../stores/mapFilter'
+import { useProjectionStore } from '../stores/projection'
 import type { Location } from '../api/locations'
-import type { GeocodeResult } from '../api/geocode'
+import type { BoundingBox, GeocodeResult } from '../api/geocode'
 
 const store = useLocationsStore()
 const visited = useVisitedStore()
 const mapFilter = useMapFilterStore()
+const projection = useProjectionStore()
 const route = useRoute()
 const router = useRouter()
-const mapRef = useTemplateRef<InstanceType<typeof MapCanvas>>('map')
+// Both canvases expose the same imperative handle, so the ref survives a
+// projection switch and "fly to" works in either view.
+type MapHandle = {
+  flyToPlace: (lat: number, lng: number, bounds: BoundingBox | null) => void
+}
+const mapRef = useTemplateRef<MapHandle>('map')
 
 // Locations carry a client-side `visited` flag (the backend always reports
 // false until auth lands in TM-20), then "My visited" narrows to that subset.
@@ -178,6 +186,14 @@ async function onDelete(): Promise<void> {
 <template>
   <div class="relative h-full w-full">
     <map-canvas
+      v-if="projection.projection === 'flat'"
+      ref="map"
+      :locations="displayLocations"
+      @map-click="onMapClick"
+      @marker-click="onMarkerClick"
+    />
+    <globe-canvas
+      v-else
       ref="map"
       :locations="displayLocations"
       @map-click="onMapClick"
@@ -210,6 +226,35 @@ async function onDelete(): Promise<void> {
         @click="mapFilter.set('visited')"
       >
         My visited
+      </button>
+    </div>
+
+    <div
+      class="absolute top-16 right-16 z-[1000] inline-flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
+    >
+      <button
+        type="button"
+        class="px-3 py-2"
+        :class="
+          projection.projection === 'flat'
+            ? 'bg-indigo-600 text-white'
+            : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
+        "
+        @click="projection.set('flat')"
+      >
+        Flat
+      </button>
+      <button
+        type="button"
+        class="px-3 py-2"
+        :class="
+          projection.projection === 'globe'
+            ? 'bg-indigo-600 text-white'
+            : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
+        "
+        @click="projection.set('globe')"
+      >
+        Globe
       </button>
     </div>
 
