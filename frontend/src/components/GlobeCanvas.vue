@@ -2,11 +2,7 @@
 import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type {
-  GeoJSONSource,
-  MapSourceDataEvent,
-  StyleSpecification,
-} from 'maplibre-gl'
+import type { GeoJSONSource, StyleSpecification } from 'maplibre-gl'
 import type { FeatureCollection, Point } from 'geojson'
 import { useMapStore } from '../stores/map'
 import type { Location } from '../api/locations'
@@ -165,6 +161,10 @@ onMounted(() => {
 
   const style: StyleSpecification = {
     version: 8,
+    // Globe projection draws the world as a sphere; drag rotates it and scroll
+    // zooms, both on by default. It has to be part of the initial style — a
+    // post-construction setProjection() runs before the style loads and is lost.
+    projection: { type: 'globe' },
     sources: {
       osm: {
         type: 'raster',
@@ -186,9 +186,6 @@ onMounted(() => {
     zoom: store.zoom,
     attributionControl: { compact: false },
   })
-  // Globe projection draws the world as a sphere; drag rotates it and scroll
-  // zooms, both on by default.
-  map.setProjection({ type: 'globe' })
   map.addControl(new maplibregl.NavigationControl(), 'top-right')
 
   map.on('load', () => {
@@ -202,17 +199,23 @@ onMounted(() => {
       // Tracks whether any clustered point is visited, to colour the bubble.
       clusterProperties: { anyVisited: ['max', ['get', 'visited']] },
     })
-    updateMarkers()
+    // The pins are HTML markers, but maplibre only tiles a source that at least
+    // one layer references — without this invisible layer querySourceFeatures()
+    // returns nothing. It also forces the cluster index to build.
+    map.addLayer({
+      id: `${SOURCE_ID}-anchor`,
+      type: 'circle',
+      source: SOURCE_ID,
+      paint: { 'circle-radius': 0, 'circle-opacity': 0 },
+    })
   })
 
-  // Source features only become queryable once a data update finishes loading;
-  // re-render markers then and on every camera move.
-  map.on('data', (event) => {
-    const e = event as MapSourceDataEvent
-    if (e.dataType === 'source' && e.sourceId === SOURCE_ID && e.isSourceLoaded)
-      updateMarkers()
+  // querySourceFeatures only returns data once the source's tiles are loaded;
+  // re-derive the markers on every frame so they track pan, zoom, and rotation.
+  map.on('render', () => {
+    if (!map?.getSource(SOURCE_ID) || !map.isSourceLoaded(SOURCE_ID)) return
+    updateMarkers()
   })
-  map.on('move', updateMarkers)
 
   map.on('click', (event) => {
     emit('mapClick', { lat: event.lngLat.lat, lng: event.lngLat.lng })
