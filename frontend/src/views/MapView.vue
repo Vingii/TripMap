@@ -1,15 +1,34 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, useTemplateRef } from 'vue'
+import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import MapCanvas from '../components/MapCanvas.vue'
 import LocationSearch from '../components/LocationSearch.vue'
 import LocationForm from '../components/LocationForm.vue'
 import LocationPanel from '../components/LocationPanel.vue'
 import { useLocationsStore } from '../stores/locations'
+import { useVisitedStore } from '../stores/visited'
+import { isMapFilter, useMapFilterStore } from '../stores/mapFilter'
 import type { Location } from '../api/locations'
 import type { GeocodeResult } from '../api/geocode'
 
 const store = useLocationsStore()
+const visited = useVisitedStore()
+const mapFilter = useMapFilterStore()
+const route = useRoute()
+const router = useRouter()
 const mapRef = useTemplateRef<InstanceType<typeof MapCanvas>>('map')
+
+// Locations carry a client-side `visited` flag (the backend always reports
+// false until auth lands in TM-20), then "My visited" narrows to that subset.
+const displayLocations = computed<Location[]>(() => {
+  const flagged = store.locations.map((l) => ({
+    ...l,
+    visited: visited.isVisited(l.id),
+  }))
+  return mapFilter.filter === 'visited'
+    ? flagged.filter((l) => l.visited)
+    : flagged
+})
 
 const selected = ref<Location | null>(null)
 const actionError = ref<string | null>(null)
@@ -39,7 +58,24 @@ const form = reactive<FormState>({
 
 onMounted(() => {
   void store.fetchAll()
+  // Hydrate the filter from the URL so a shared link reproduces the view.
+  if (isMapFilter(route.query.filter)) {
+    mapFilter.set(route.query.filter)
+  }
 })
+
+// Keep the `filter` query param in sync for shareability; drop it when "all".
+watch(
+  () => mapFilter.filter,
+  (filter) => {
+    void router.replace({
+      query: {
+        ...route.query,
+        filter: filter === 'all' ? undefined : filter,
+      },
+    })
+  },
+)
 
 function openCreate(
   name: string,
@@ -143,10 +179,39 @@ async function onDelete(): Promise<void> {
   <div class="relative h-full w-full">
     <map-canvas
       ref="map"
-      :locations="store.locations"
+      :locations="displayLocations"
       @map-click="onMapClick"
       @marker-click="onMarkerClick"
     />
+
+    <div
+      class="absolute top-4 right-16 z-[1000] inline-flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
+    >
+      <button
+        type="button"
+        class="px-3 py-2"
+        :class="
+          mapFilter.filter === 'all'
+            ? 'bg-indigo-600 text-white'
+            : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
+        "
+        @click="mapFilter.set('all')"
+      >
+        All
+      </button>
+      <button
+        type="button"
+        class="px-3 py-2"
+        :class="
+          mapFilter.filter === 'visited'
+            ? 'bg-indigo-600 text-white'
+            : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
+        "
+        @click="mapFilter.set('visited')"
+      >
+        My visited
+      </button>
+    </div>
 
     <div class="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
       <location-search @select="onSearchSelect" />
@@ -172,9 +237,11 @@ async function onDelete(): Promise<void> {
     <div v-if="selected" class="absolute bottom-6 left-4 z-[1000]">
       <location-panel
         :location="selected"
+        :visited="visited.isVisited(selected.id)"
         @edit="onEdit"
         @delete="onDelete"
         @close="selected = null"
+        @toggle-visited="visited.toggle(selected.id)"
       />
     </div>
 
