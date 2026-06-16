@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/Vingii/TripMap/compare/v1.1.0...v1.2.0) (2026-06-16)
+
+
+### Features
+
+* globe view for the map (TM-32) ([#19](https://github.com/Vingii/TripMap/issues/19)) ([55adc35](https://github.com/Vingii/TripMap/commit/55adc353c7bee077b0e1101044372643d96e4637))
+* location CRUD (TM-14) ([#16](https://github.com/Vingii/TripMap/issues/16)) ([ee24131](https://github.com/Vingii/TripMap/commit/ee24131ff6e3c222424ec4a43167b0377409306b))
+* pin view with visited toggle, filter and clustering (TM-12) ([#18](https://github.com/Vingii/TripMap/issues/18)) ([f07a393](https://github.com/Vingii/TripMap/commit/f07a39347cdf287acb23e032e6c010219b0915e7))
+
 ## [1.1.0](https://github.com/Vingii/TripMap/compare/v1.0.0...v1.1.0) (2026-06-11)
 
 
