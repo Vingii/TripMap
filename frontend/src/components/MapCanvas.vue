@@ -48,10 +48,18 @@ function pinIcon(visited: boolean): L.DivIcon {
   })
 }
 
-function markerFor(location: Location): L.Marker {
-  return L.marker([location.lat, location.lng], {
+// Carries the location's visited flag so a cluster can colour itself by whether
+// any of its children are visited.
+interface VisitedMarker extends L.Marker {
+  visited: boolean
+}
+
+function markerFor(location: Location): VisitedMarker {
+  const marker = L.marker([location.lat, location.lng], {
     icon: pinIcon(location.visited),
-  })
+  }) as VisitedMarker
+  marker.visited = location.visited
+  marker
     .bindTooltip(location.name)
     .on('click', (event: L.LeafletMouseEvent) => {
       // Stop the click bubbling to the map, which would open the "new
@@ -59,6 +67,21 @@ function markerFor(location: Location): L.Marker {
       L.DomEvent.stopPropagation(event)
       emit('markerClick', location)
     })
+  return marker
+}
+
+// Cluster bubble styled like the pins: filled blue if any child is visited,
+// otherwise a hollow white circle with a blue outline.
+function clusterIcon(cluster: L.MarkerCluster): L.DivIcon {
+  const anyVisited = cluster
+    .getAllChildMarkers()
+    .some((m) => (m as VisitedMarker).visited)
+  const bg = anyVisited ? MARKER_COLOR : '#ffffff'
+  const fg = anyVisited ? '#ffffff' : MARKER_COLOR
+  const border = anyVisited ? '#1e293b' : MARKER_COLOR
+  const html = `
+    <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9999px;background:${bg};color:${fg};border:2px solid ${border};font:600 13px/1 system-ui,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.3);">${cluster.getChildCount()}</div>`
+  return L.divIcon({ html, className: '', iconSize: [36, 36] })
 }
 
 function renderMarkers(): void {
@@ -69,7 +92,7 @@ function renderMarkers(): void {
   }
   // markercluster groups pins by proximity per zoom level and breaks them out
   // into individual markers once they're far enough apart, so it's always on.
-  markerLayer = L.markerClusterGroup()
+  markerLayer = L.markerClusterGroup({ iconCreateFunction: clusterIcon })
   for (const location of props.locations) {
     markerLayer.addLayer(markerFor(location))
   }
