@@ -25,10 +25,6 @@ let map: L.Map | null = null
 let markerLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
 
-// Above this many markers the plain layer gets too cluttered, so we switch to
-// clustering. The layer type can flip as filtering changes the visible count.
-const CLUSTER_THRESHOLD = 5
-
 const MARKER_COLOR = '#6366f1'
 
 // Teardrop map pin: rounded head, pointed tip at the bottom-centre (24×36, tip
@@ -71,10 +67,9 @@ function renderMarkers(): void {
     map.removeLayer(markerLayer)
     markerLayer = null
   }
-  markerLayer =
-    props.locations.length > CLUSTER_THRESHOLD
-      ? L.markerClusterGroup()
-      : L.layerGroup()
+  // markercluster groups pins by proximity per zoom level and breaks them out
+  // into individual markers once they're far enough apart, so it's always on.
+  markerLayer = L.markerClusterGroup()
   for (const location of props.locations) {
     markerLayer.addLayer(markerFor(location))
   }
