@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { Location } from '../api/locations'
 
-defineProps<{ location: Location }>()
+const props = defineProps<{ location: Location; visited: boolean }>()
 
 const emit = defineEmits<{
   edit: []
   delete: []
   close: []
+  toggleVisited: []
 }>()
 
 const confirming = ref(false)
+
+const addedOn = computed(() =>
+  new Date(props.location.created_at).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }),
+)
 </script>
 
 <template>
@@ -31,6 +40,9 @@ const confirming = ref(false)
             · {{ location.country_code }}</span
           >
         </p>
+        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          Added {{ addedOn }}
+        </p>
       </div>
       <button
         type="button"
@@ -42,7 +54,21 @@ const confirming = ref(false)
       </button>
     </div>
 
-    <div v-if="!confirming" class="mt-3 flex gap-2">
+    <button
+      v-if="!confirming"
+      type="button"
+      class="mt-3 w-full rounded-md px-3 py-1.5 text-sm font-medium"
+      :class="
+        visited
+          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+          : 'border border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-950'
+      "
+      @click="emit('toggleVisited')"
+    >
+      {{ visited ? '✓ Visited' : 'Mark visited' }}
+    </button>
+
+    <div v-if="!confirming" class="mt-2 flex gap-2">
       <button
         type="button"
         class="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"

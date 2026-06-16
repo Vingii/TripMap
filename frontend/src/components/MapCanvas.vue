@@ -2,6 +2,9 @@
 import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { useMapStore } from '../stores/map'
 import type { Location } from '../api/locations'
 
@@ -22,26 +25,44 @@ let map: L.Map | null = null
 let markerLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
 
-function renderMarkers(): void {
-  if (!map || !markerLayer) return
-  markerLayer.clearLayers()
-  for (const location of props.locations) {
-    L.circleMarker([location.lat, location.lng], {
-      radius: 7,
-      weight: 2,
-      color: '#1e293b',
-      fillColor: '#6366f1',
-      fillOpacity: 0.9,
+// Above this many markers the plain layer gets too cluttered, so we switch to
+// clustering. The layer type can flip as filtering changes the visible count.
+const CLUSTER_THRESHOLD = 50
+
+const MARKER_COLOR = '#6366f1'
+
+function markerFor(location: Location): L.CircleMarker {
+  // Visited locations are filled; unvisited ones are drawn as a hollow outline.
+  return L.circleMarker([location.lat, location.lng], {
+    radius: 7,
+    weight: 2,
+    color: location.visited ? '#1e293b' : MARKER_COLOR,
+    fillColor: MARKER_COLOR,
+    fillOpacity: location.visited ? 0.9 : 0,
+  })
+    .bindTooltip(location.name)
+    .on('click', (event: L.LeafletMouseEvent) => {
+      // Stop the click bubbling to the map, which would open the "new
+      // location" form on top of the marker we actually clicked.
+      L.DomEvent.stopPropagation(event)
+      emit('markerClick', location)
     })
-      .bindTooltip(location.name)
-      .on('click', (event: L.LeafletMouseEvent) => {
-        // Stop the click bubbling to the map, which would open the "new
-        // location" form on top of the marker we actually clicked.
-        L.DomEvent.stopPropagation(event)
-        emit('markerClick', location)
-      })
-      .addTo(markerLayer)
+}
+
+function renderMarkers(): void {
+  if (!map) return
+  if (markerLayer) {
+    map.removeLayer(markerLayer)
+    markerLayer = null
   }
+  markerLayer =
+    props.locations.length > CLUSTER_THRESHOLD
+      ? L.markerClusterGroup()
+      : L.layerGroup()
+  for (const location of props.locations) {
+    markerLayer.addLayer(markerFor(location))
+  }
+  markerLayer.addTo(map)
 }
 
 onMounted(() => {
@@ -61,7 +82,6 @@ onMounted(() => {
     attribution: OSM_ATTRIBUTION,
   }).addTo(map)
 
-  markerLayer = L.layerGroup().addTo(map)
   renderMarkers()
 
   map.on('click', (event: L.LeafletMouseEvent) => {
