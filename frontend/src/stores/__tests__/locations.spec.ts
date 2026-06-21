@@ -7,6 +7,7 @@ vi.mock('../../api/locations', () => ({
   listLocations: vi.fn(),
   createLocation: vi.fn(),
   updateLocation: vi.fn(),
+  setLocationVisited: vi.fn(),
   deleteLocation: vi.fn(),
 }))
 
@@ -14,6 +15,7 @@ import {
   createLocation,
   deleteLocation,
   listLocations,
+  setLocationVisited,
   updateLocation,
 } from '../../api/locations'
 
@@ -91,5 +93,20 @@ describe('locations store', () => {
     await store.remove('id-1')
 
     expect(store.locations).toEqual([])
+  })
+
+  it('setVisited replaces the location with the server-updated flag', async () => {
+    const loc = makeLocation({ visited: false })
+    const visited = makeLocation({ visited: true })
+    vi.mocked(listLocations).mockResolvedValue([loc])
+    vi.mocked(setLocationVisited).mockResolvedValue(visited)
+    const store = useLocationsStore()
+    await store.fetchAll()
+
+    const result = await store.setVisited('id-1', true)
+
+    expect(setLocationVisited).toHaveBeenCalledWith('id-1', true)
+    expect(result).toEqual(visited)
+    expect(store.locations).toEqual([visited])
   })
 })

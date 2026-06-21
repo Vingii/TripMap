@@ -1,5 +1,13 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import AppNav from './components/AppNav.vue'
+import { useAuthStore } from './stores/auth'
+
+// Restore the session (if a token is present) before the views fetch data.
+const auth = useAuthStore()
+onMounted(() => {
+  void auth.loadUser()
+})
 </script>
 
 <template>

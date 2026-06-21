@@ -7,14 +7,12 @@ import LocationSearch from '../components/LocationSearch.vue'
 import LocationForm from '../components/LocationForm.vue'
 import LocationPanel from '../components/LocationPanel.vue'
 import { useLocationsStore } from '../stores/locations'
-import { useVisitedStore } from '../stores/visited'
 import { isMapFilter, useMapFilterStore } from '../stores/mapFilter'
 import { useProjectionStore } from '../stores/projection'
 import type { Location } from '../api/locations'
 import type { BoundingBox, GeocodeResult } from '../api/geocode'
 
 const store = useLocationsStore()
-const visited = useVisitedStore()
 const mapFilter = useMapFilterStore()
 const projection = useProjectionStore()
 const route = useRoute()
@@ -26,17 +24,13 @@ type MapHandle = {
 }
 const mapRef = useTemplateRef<MapHandle>('map')
 
-// Locations carry a client-side `visited` flag (the backend always reports
-// false until auth lands in TM-20), then "My visited" narrows to that subset.
-const displayLocations = computed<Location[]>(() => {
-  const flagged = store.locations.map((l) => ({
-    ...l,
-    visited: visited.isVisited(l.id),
-  }))
-  return mapFilter.filter === 'visited'
-    ? flagged.filter((l) => l.visited)
-    : flagged
-})
+// Each location's `visited` flag is scoped to the current user by the backend;
+// "My visited" narrows the map to that subset.
+const displayLocations = computed<Location[]>(() =>
+  mapFilter.filter === 'visited'
+    ? store.locations.filter((l) => l.visited)
+    : store.locations,
+)
 
 const selected = ref<Location | null>(null)
 const actionError = ref<string | null>(null)
@@ -181,6 +175,18 @@ async function onDelete(): Promise<void> {
     actionError.value = 'Could not delete the location. Please try again.'
   }
 }
+
+async function onToggleVisited(): Promise<void> {
+  if (!selected.value) return
+  actionError.value = null
+  const location = selected.value
+  try {
+    const updated = await store.setVisited(location.id, !location.visited)
+    if (selected.value?.id === updated.id) selected.value = updated
+  } catch {
+    actionError.value = 'Could not update visited state. Please try again.'
+  }
+}
 </script>
 
 <template>
@@ -282,11 +288,11 @@ async function onDelete(): Promise<void> {
     <div v-if="selected" class="absolute bottom-6 left-4 z-[1000]">
       <location-panel
         :location="selected"
-        :visited="visited.isVisited(selected.id)"
+        :visited="selected.visited"
         @edit="onEdit"
         @delete="onDelete"
         @close="selected = null"
-        @toggle-visited="visited.toggle(selected.id)"
+        @toggle-visited="onToggleVisited"
       />
     </div>
 

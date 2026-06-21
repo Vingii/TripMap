@@ -4,6 +4,7 @@ import {
   createLocation,
   deleteLocation,
   listLocations,
+  setLocationVisited,
   updateLocation,
   type Location,
   type LocationCreate,
@@ -44,5 +45,22 @@ export const useLocationsStore = defineStore('locations', () => {
     locations.value = locations.value.filter((l) => l.id !== id)
   }
 
-  return { locations, loading, error, fetchAll, create, update, remove }
+  // Per-user visited state lives on the backend (user_location_states); the
+  // returned location carries the requesting user's refreshed `visited` flag.
+  async function setVisited(id: string, visited: boolean): Promise<Location> {
+    const updated = await setLocationVisited(id, visited)
+    locations.value = locations.value.map((l) => (l.id === id ? updated : l))
+    return updated
+  }
+
+  return {
+    locations,
+    loading,
+    error,
+    fetchAll,
+    create,
+    update,
+    remove,
+    setVisited,
+  }
 })
