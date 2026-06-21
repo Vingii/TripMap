@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Vingii/TripMap/compare/v1.2.0...v1.3.0) (2026-06-21)
+
+
+### Features
+
+* multi-user support with OIDC auth and per-user visited state (TM-10) ([#21](https://github.com/Vingii/TripMap/issues/21)) ([7423fe4](https://github.com/Vingii/TripMap/commit/7423fe4ca3e67fe98ad29711aea802c67826af50))
+
 ## [1.2.0](https://github.com/Vingii/TripMap/compare/v1.1.0...v1.2.0) (2026-06-16)
 
 
