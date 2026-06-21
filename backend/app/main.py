@@ -2,23 +2,28 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import geocode, health, locations
+from app.deps import get_current_user
+from app.routers import geocode, health, locations, me
+from app.services.auth import create_oidc_verifier
 from app.services.geocode import create_geocode_service
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.geocode_service = create_geocode_service(get_settings())
+    settings = get_settings()
+    app.state.geocode_service = create_geocode_service(settings)
+    app.state.oidc_verifier = create_oidc_verifier(settings)
     try:
         yield
     finally:
         await app.state.geocode_service.aclose()
+        await app.state.oidc_verifier.aclose()
 
 
 def create_app() -> FastAPI:
@@ -41,8 +46,10 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router, prefix="/api")
-    app.include_router(geocode.router, prefix="/api")
+    # Geocoding has no per-user facet but still requires a signed-in user.
+    app.include_router(geocode.router, prefix="/api", dependencies=[Depends(get_current_user)])
     app.include_router(locations.router, prefix="/api")
+    app.include_router(me.router, prefix="/api")
     _mount_frontend(app, settings.static_dir)
     return app
 

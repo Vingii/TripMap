@@ -44,15 +44,24 @@ class LocationUpdate(BaseModel):
         return self
 
 
+class LocationVisitedUpdate(BaseModel):
+    """Set whether the requesting user has visited a location."""
+
+    visited: bool
+
+
 class LocationRead(BaseModel):
-    """A location as returned by the API."""
+    """A location as returned by the API.
+
+    ``visited`` is scoped to the requesting user: it reflects whether *they* have
+    a ``visited`` state for this location, not a property of the location itself.
+    """
 
     id: uuid.UUID
     name: str
     lat: float
     lng: float
     country_code: str | None
-    # TODO(TM-20): scope to the requesting user once auth (Milestone 4) lands.
     visited: bool = False
     created_at: datetime
     updated_at: datetime

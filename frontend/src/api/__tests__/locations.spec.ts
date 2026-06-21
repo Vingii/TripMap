@@ -1,13 +1,20 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createLocation,
   deleteLocation,
   listLocations,
+  setLocationVisited,
   updateLocation,
 } from '../locations'
+import { setAuthToken } from '../client'
+
+beforeEach(() => {
+  setAuthToken(null)
+})
 
 afterEach(() => {
   vi.restoreAllMocks()
+  setAuthToken(null)
 })
 
 const sample = {
@@ -29,7 +36,21 @@ describe('listLocations', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     expect(await listLocations()).toEqual([sample])
-    expect(fetchMock).toHaveBeenCalledWith('/api/locations')
+    expect(fetchMock).toHaveBeenCalledWith('/api/locations', { headers: {} })
+  })
+
+  it('attaches the bearer token when one is set', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve([]) })
+    vi.stubGlobal('fetch', fetchMock)
+    setAuthToken('tok-123')
+
+    await listLocations()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/locations', {
+      headers: { Authorization: 'Bearer tok-123' },
+    })
   })
 
   it('throws on an error status', async () => {
@@ -80,6 +101,23 @@ describe('updateLocation', () => {
   })
 })
 
+describe('setLocationVisited', () => {
+  it('PUTs the visited flag and returns the updated location', async () => {
+    const visited = { ...sample, visited: true }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve(visited) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await setLocationVisited('abc', true)).toEqual(visited)
+    expect(fetchMock).toHaveBeenCalledWith('/api/locations/abc/visited', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visited: true }),
+    })
+  })
+})
+
 describe('deleteLocation', () => {
   it('DELETEs the given id and resolves on success', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true })
@@ -88,6 +126,7 @@ describe('deleteLocation', () => {
     await expect(deleteLocation('abc')).resolves.toBeUndefined()
     expect(fetchMock).toHaveBeenCalledWith('/api/locations/abc', {
       method: 'DELETE',
+      headers: {},
     })
   })
 

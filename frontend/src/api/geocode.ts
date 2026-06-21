@@ -1,5 +1,7 @@
 // All HTTP calls live under src/api/ — components and stores import from here.
 
+import { apiFetch } from './client'
+
 export interface BoundingBox {
   south: number
   north: number
@@ -26,7 +28,7 @@ export async function searchPlaces(
   const q = query.trim()
   if (!q) return []
 
-  const response = await fetch(
+  const response = await apiFetch(
     `/api/geocode/search?q=${encodeURIComponent(q)}`,
     { signal },
   )

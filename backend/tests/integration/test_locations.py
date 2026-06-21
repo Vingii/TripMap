@@ -9,10 +9,13 @@ from collections.abc import Iterator
 import httpx
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_geocode_service
 from app.main import app
+from app.models.user import User
 from app.services.geocode import GeocodeService, _RateLimiter
+from tests.integration.conftest import Login
 
 pytestmark = pytest.mark.usefixtures("client")
 
@@ -154,3 +157,63 @@ async def test_delete_removes_location(client: AsyncClient) -> None:
 async def test_delete_unknown_location_is_404(client: AsyncClient) -> None:
     response = await client.delete("/api/locations/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
+
+
+async def test_set_visited_marks_and_unmarks(client: AsyncClient) -> None:
+    created = (
+        await client.post("/api/locations", json={"name": "Oslo", "lat": 59.9, "lng": 10.75})
+    ).json()
+    assert created["visited"] is False
+
+    marked = await client.put(f"/api/locations/{created['id']}/visited", json={"visited": True})
+    assert marked.status_code == 200
+    assert marked.json()["visited"] is True
+    # Reflected in subsequent reads.
+    assert (await client.get(f"/api/locations/{created['id']}")).json()["visited"] is True
+
+    unmarked = await client.put(f"/api/locations/{created['id']}/visited", json={"visited": False})
+    assert unmarked.status_code == 200
+    assert unmarked.json()["visited"] is False
+
+
+async def test_set_visited_is_idempotent(client: AsyncClient) -> None:
+    created = (
+        await client.post("/api/locations", json={"name": "Bergen", "lat": 60.4, "lng": 5.3})
+    ).json()
+
+    first = await client.put(f"/api/locations/{created['id']}/visited", json={"visited": True})
+    second = await client.put(f"/api/locations/{created['id']}/visited", json={"visited": True})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["visited"] is True
+
+
+async def test_set_visited_unknown_location_is_404(client: AsyncClient) -> None:
+    response = await client.put(
+        "/api/locations/00000000-0000-0000-0000-000000000000/visited",
+        json={"visited": True},
+    )
+    assert response.status_code == 404
+
+
+async def test_visited_is_scoped_per_user(
+    client: AsyncClient, db_session: AsyncSession, authenticate: Login
+) -> None:
+    """One user marking a location visited must not affect another user's view."""
+    created = (
+        await client.post("/api/locations", json={"name": "Shared", "lat": 1, "lng": 2})
+    ).json()
+    await client.put(f"/api/locations/{created['id']}/visited", json={"visited": True})
+
+    # A second user sees the same location but with their own (empty) visited state.
+    other = User(oidc_sub="test|user-2", email="other@example.com", settings={})
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+    authenticate(other)
+
+    listed = (await client.get("/api/locations")).json()
+    assert len(listed) == 1
+    assert listed[0]["id"] == created["id"]
+    assert listed[0]["visited"] is False
