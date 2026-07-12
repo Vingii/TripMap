@@ -32,6 +32,10 @@ docker compose -f docker-compose.prod.yml exec app \
 
 Database data persists in the `tripmap-db-data` named volume; container logs are capped at 5×10 MB per service. Pin a specific image tag by setting `TRIPMAP_IMAGE=vingii/tripmap:vX.Y.Z` in `.env` for reproducible deploys. HTTPS termination is intentionally out of scope — run your own reverse proxy (Caddy, Traefik, nginx) in front of the app port if you need TLS.
 
+### Authentication (SSO)
+
+TripMap verifies bearer tokens issued by your own Authentik OIDC provider — see [docs/authentik-sso.md](docs/authentik-sso.md) for the one-time provider/application setup and the `OIDC_ISSUER` / `OIDC_AUDIENCE` environment variables you need to set.
+
 ## License
 
 [MIT](LICENSE)
