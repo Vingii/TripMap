@@ -1,40 +1,46 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { setAuthToken } from '../api/client'
+import type { User as OidcUser } from 'oidc-client-ts'
+import { setAuthToken, setUnauthorizedHandler } from '../api/client'
 import { getMe, type User } from '../api/me'
+import { router } from '../router'
+import {
+  CALLBACK_PATH,
+  getUserManager,
+  initOidc,
+  isOidcConfigured,
+} from '../auth/oidc'
 
-// The bearer token is persisted here so a page reload keeps the session. The
-// SPA login flow that populates it (Authentik Authorization Code + PKCE) lands
-// in a later task; until then a token can be injected into localStorage for
-// development. The store mirrors the token into the API client on every change.
-const TOKEN_KEY = 'tripmap.token'
+// The access token lives only in this store (in memory) — never in web storage.
+// A hard reload therefore starts tokenless and re-establishes the session via
+// silent renew in initialize(). See auth/oidc.ts for the rationale.
 
-function loadToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(TOKEN_KEY)
+// Login state passed through the Authentik redirect so we can return the user
+// to the page they originally requested.
+interface LoginState {
+  returnTo?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(loadToken())
+  const token = ref<string | null>(null)
   const user = ref<User | null>(null)
+  const ready = ref(false)
   const loading = ref(false)
 
-  // Seed the API client with whatever token we restored from storage.
-  setAuthToken(token.value)
+  const isAuthenticated = computed(() => token.value !== null)
 
-  function setToken(next: string | null): void {
-    token.value = next
-    setAuthToken(next)
-    if (typeof window !== 'undefined') {
-      if (next) window.localStorage.setItem(TOKEN_KEY, next)
-      else window.localStorage.removeItem(TOKEN_KEY)
-    }
+  function applyUser(oidcUser: OidcUser): void {
+    token.value = oidcUser.access_token
+    setAuthToken(oidcUser.access_token)
   }
 
-  /**
-   * Load the current user's profile. No-ops without a token, and clears the
-   * session on a 401 so a stale token doesn't leave the UI in a wedged state.
-   */
+  function clearSession(): void {
+    token.value = null
+    user.value = null
+    setAuthToken(null)
+  }
+
+  /** Load the current user's profile; no-ops without a token. */
   async function loadUser(): Promise<void> {
     if (!token.value) {
       user.value = null
@@ -44,17 +50,117 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       user.value = await getMe()
     } catch {
+      // A 401 is handled by the unauthorized handler; other errors just leave
+      // the profile empty without tearing down an otherwise valid session.
       user.value = null
-      setToken(null)
     } finally {
       loading.value = false
     }
   }
 
-  function logout(): void {
-    user.value = null
-    setToken(null)
+  /**
+   * Bootstrap auth before the app mounts. Loads runtime OIDC config, wires the
+   * token-expiry / unauthorized hooks, and attempts a silent sign-in so a fresh
+   * page load transparently restores the session. Always resolves; failure just
+   * leaves the app unauthenticated for the router guard to redirect.
+   */
+  async function initialize(): Promise<void> {
+    const configured = await initOidc()
+    if (!configured) {
+      ready.value = true
+      return
+    }
+
+    setUnauthorizedHandler(handleUnauthorized)
+    const manager = getUserManager()
+    // Keep the in-memory token fresh across automatic silent renews.
+    manager.events.addUserLoaded((u) => applyUser(u))
+    manager.events.addAccessTokenExpired(() => handleUnauthorized())
+
+    // On the callback route the dedicated view completes the exchange; don't
+    // race it with a silent sign-in here.
+    if (window.location.pathname === CALLBACK_PATH) {
+      ready.value = true
+      return
+    }
+
+    try {
+      const u = await manager.signinSilent()
+      if (u && !u.expired) {
+        applyUser(u)
+        await loadUser()
+      }
+    } catch {
+      // Not signed in — the guard will route to /login.
+    } finally {
+      ready.value = true
+    }
   }
 
-  return { token, user, loading, setToken, loadUser, logout }
+  /** Begin the Authorization Code + PKCE redirect to Authentik. */
+  async function login(returnTo = '/'): Promise<void> {
+    if (!isOidcConfigured()) return
+    const state: LoginState = { returnTo }
+    await getUserManager().signinRedirect({ state })
+  }
+
+  /**
+   * Complete the login redirect. Returns the path the user should land on
+   * (the page they originally requested, or home).
+   */
+  async function completeLogin(): Promise<string> {
+    const oidcUser = await getUserManager().signinCallback()
+    if (!oidcUser) throw new Error('Login callback produced no user')
+    applyUser(oidcUser)
+    await loadUser()
+    const state = oidcUser.state as LoginState | undefined
+    return state?.returnTo ?? '/'
+  }
+
+  /** User-initiated logout: clear the in-memory session and go to /login. */
+  async function logout(): Promise<void> {
+    clearSession()
+    if (isOidcConfigured()) {
+      // Drop the local user so a later visit re-runs silent sign-in cleanly.
+      try {
+        await getUserManager().removeUser()
+      } catch {
+        // best effort
+      }
+    }
+    if (router.currentRoute.value.name !== 'login') {
+      await router.push({ name: 'login' })
+    }
+  }
+
+  /** A 401 from any API call: drop the session and bounce to /login. */
+  function handleUnauthorized(): void {
+    clearSession()
+    if (isOidcConfigured()) {
+      void getUserManager()
+        .removeUser()
+        .catch(() => {})
+    }
+    const current = router.currentRoute.value
+    if (current.name !== 'login') {
+      void router.replace({
+        name: 'login',
+        query: { redirect: current.fullPath },
+      })
+    }
+  }
+
+  return {
+    token,
+    user,
+    ready,
+    loading,
+    isAuthenticated,
+    initialize,
+    login,
+    completeLogin,
+    logout,
+    loadUser,
+    handleUnauthorized,
+  }
 })

@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.deps import get_current_user
-from app.routers import geocode, health, locations, me
+from app.routers import config, geocode, health, locations, me
 from app.services.auth import create_oidc_verifier
 from app.services.geocode import create_geocode_service
 
@@ -46,6 +46,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(config.router, prefix="/api")
     # Geocoding has no per-user facet but still requires a signed-in user.
     app.include_router(geocode.router, prefix="/api", dependencies=[Depends(get_current_user)])
     app.include_router(locations.router, prefix="/api")

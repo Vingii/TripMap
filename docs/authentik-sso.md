@@ -7,9 +7,12 @@ checking the signature, the issuer (`iss`), and the audience (`aud`). This guide
 covers the one-time provider/application setup in Authentik and the environment
 variables TripMap needs to trust the tokens it issues.
 
-The in-browser login flow that obtains a token for the SPA is delivered
-separately (TM-26); this document is about wiring the backend to Authentik and
-verifying token verification works end to end.
+The SPA reads the issuer and public client ID at runtime from `GET /api/config`
+(served by the backend from `OIDC_ISSUER` / `OIDC_AUDIENCE`) rather than baking
+them in at build time, so the single published Docker image works against any
+Authentik provider — you configure it purely through the backend's environment.
+The in-browser login flow uses Authorization Code + PKCE with the token held in
+memory and re-established on reload via silent renew.
 
 ## 1. Create the OAuth2/OpenID provider
 
@@ -23,7 +26,7 @@ choose **OAuth2/OpenID Provider**. Configure it as follows:
 | **Client ID** | Keep the generated value, or set a memorable one (e.g. `tripmap`). This becomes `OIDC_AUDIENCE`. |
 | **Redirect URIs** | One line per environment (see below) |
 | **Signing Key** | An **RS256** key — select a certificate backed by an RSA key pair |
-| **Scopes** | `openid`, `email`, `profile` |
+| **Scopes** | `openid`, `email`, `profile`, `offline_access` |
 
 ### Client type: public + PKCE
 
@@ -40,17 +43,24 @@ Pick a signing certificate backed by an **RSA** key pair. A symmetric (HS256) or
 EC signing key will fail verification with a 401, even when everything else is
 correct.
 
+### Scopes and silent renew
+
+The `offline_access` scope lets Authentik issue a refresh token so the SPA can
+rotate the access token before it expires without a full redirect. Because the
+token is held in memory (never in web storage), a hard page reload has no
+refresh token to fall back on and instead re-establishes the session with a
+hidden-iframe silent renew (`prompt=none`) against the existing Authentik
+session cookie. Both paths use the `/auth/callback` redirect URI.
+
 ### Redirect URIs
 
-Add one redirect URI per environment the SPA runs from. For example:
+Add one redirect URI per environment the SPA runs from. The SPA's callback route
+is `/auth/callback` (it also serves as the silent-renew target), so register:
 
 ```
 https://tripmap.example.com/auth/callback
 http://localhost:5173/auth/callback
 ```
-
-Adjust the paths to match the SPA callback route once TM-26 lands; the host and
-scheme are what matter for the provider today.
 
 ## 2. Create the application
 
@@ -104,10 +114,9 @@ Confirm token verification works against the real provider:
    # → 401  (WWW-Authenticate: Bearer)
    ```
 
-3. **Valid token** — obtain an access token from Authentik for the TripMap
-   application (via the SPA once TM-26 lands, or with a manual
-   Authorization-Code-+-PKCE exchange / Authentik's API token flow for testing),
-   then:
+3. **Valid token** — sign in through the SPA's `/login` screen (or perform a
+   manual Authorization-Code-+-PKCE exchange for testing) to obtain an access
+   token, then:
 
    ```sh
    curl -i -H "Authorization: Bearer $TOKEN" https://tripmap.example.com/api/me
