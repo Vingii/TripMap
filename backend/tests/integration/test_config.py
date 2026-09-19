@@ -24,4 +24,5 @@ async def test_config_is_public_and_maps_audience_to_client_id() -> None:
     assert response.json() == {
         "oidc_issuer": "https://auth.example.com/application/o/tripmap/",
         "oidc_client_id": "tripmap-client",
+        "dev_auth": False,
     }
