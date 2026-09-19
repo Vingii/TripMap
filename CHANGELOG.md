@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/Vingii/TripMap/compare/v1.3.0...v1.4.0) (2026-09-19)
+
+
+### Features
+
+* local dev auth bypass and SSO auto-login (TM-34) ([#27](https://github.com/Vingii/TripMap/issues/27)) ([79dbc70](https://github.com/Vingii/TripMap/commit/79dbc7084912749cc1b825ca3e023a0963b87372))
+* user settings UI (TM-27) ([#25](https://github.com/Vingii/TripMap/issues/25)) ([ad909bb](https://github.com/Vingii/TripMap/commit/ad909bbe166029a8750c10e7ccdd53a32c7ca7a4))
+
 ## [1.3.0](https://github.com/Vingii/TripMap/compare/v1.2.0...v1.3.0) (2026-07-12)
 
 
