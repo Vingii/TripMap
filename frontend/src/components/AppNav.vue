@@ -2,13 +2,22 @@
 import { computed } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
+import { useSettingsStore } from '../stores/settings'
 
 const theme = useThemeStore()
 const auth = useAuthStore()
+const settings = useSettingsStore()
 
 const userLabel = computed(
   () => auth.user?.display_name || auth.user?.email || '',
 )
+
+// Flip light/dark instantly, then persist the choice to the account so it
+// sticks across devices (best-effort — the visual change already applied).
+function toggleTheme(): void {
+  theme.toggle()
+  void settings.save({ theme: theme.theme }).catch(() => {})
+}
 </script>
 
 <template>
@@ -52,12 +61,14 @@ const userLabel = computed(
         </li>
       </ul>
       <div class="ml-auto flex items-center gap-2">
-        <span
+        <router-link
           v-if="userLabel"
-          class="hidden text-sm text-slate-600 sm:inline dark:text-slate-400"
+          to="/settings"
+          class="hidden rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:inline dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+          active-class="text-slate-900 font-medium dark:text-slate-100"
         >
           {{ userLabel }}
-        </span>
+        </router-link>
         <button
           type="button"
           class="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
@@ -65,7 +76,7 @@ const userLabel = computed(
             theme.isDark ? 'Switch to light theme' : 'Switch to dark theme'
           "
           :aria-pressed="theme.isDark"
-          @click="theme.toggle"
+          @click="toggleTheme"
         >
           <!-- Sun shown in dark mode (click → light); moon in light mode (click → dark) -->
           <svg

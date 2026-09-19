@@ -9,12 +9,14 @@ import LocationPanel from '../components/LocationPanel.vue'
 import { useLocationsStore } from '../stores/locations'
 import { isMapFilter, useMapFilterStore } from '../stores/mapFilter'
 import { useProjectionStore } from '../stores/projection'
+import { useSettingsStore } from '../stores/settings'
 import type { Location } from '../api/locations'
 import type { BoundingBox, GeocodeResult } from '../api/geocode'
 
 const store = useLocationsStore()
 const mapFilter = useMapFilterStore()
 const projection = useProjectionStore()
+const settings = useSettingsStore()
 const route = useRoute()
 const router = useRouter()
 // Both canvases expose the same imperative handle, so the ref survives a
@@ -152,12 +154,16 @@ async function onSubmit(payload: {
     } else {
       // Reuse the search's country code only when the coordinates are unchanged.
       const unchanged = payload.lat === form.lat && payload.lng === form.lng
-      await store.create({
+      const created = await store.create({
         ...payload,
         ...(unchanged && form.countryCode
           ? { country_code: form.countryCode }
           : {}),
       })
+      // Honour the user's "mark new locations as visited" default.
+      if (settings.settings?.default_visited) {
+        await store.setVisited(created.id, true)
+      }
     }
     form.open = false
   } catch {
