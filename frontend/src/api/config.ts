@@ -6,6 +6,8 @@
 export interface ClientConfig {
   oidc_issuer: string
   oidc_client_id: string
+  // Local-dev only: the app auto-authenticates and skips the OIDC flow.
+  dev_auth?: boolean
 }
 
 export async function getClientConfig(): Promise<ClientConfig> {

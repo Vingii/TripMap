@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -17,6 +18,11 @@ from app.services.geocode import create_geocode_service
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    if settings.dev_auth:
+        logging.getLogger("uvicorn.error").warning(
+            "DEV_AUTH is enabled: authentication is DISABLED and every request "
+            "runs as a fixed local user. Never use this in production."
+        )
     app.state.geocode_service = create_geocode_service(settings)
     app.state.oidc_verifier = create_oidc_verifier(settings)
     try:

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type { User as OidcUser } from 'oidc-client-ts'
 import { setAuthToken, setUnauthorizedHandler } from '../api/client'
 import { getMe, type User } from '../api/me'
+import { getClientConfig } from '../api/config'
 import { useSettingsStore } from './settings'
 import { router } from '../router'
 import {
@@ -11,6 +12,11 @@ import {
   initOidc,
   isOidcConfigured,
 } from '../auth/oidc'
+
+// Sentinel bearer token used in DEV_AUTH mode. The backend ignores the token's
+// value entirely when dev auth is on, so it only needs to be non-null for the
+// SPA to treat itself as signed in and attach an Authorization header.
+const DEV_TOKEN = 'dev-auth'
 
 // The access token lives only in this store (in memory) — never in web storage.
 // A hard reload therefore starts tokenless and re-establishes the session via
@@ -27,6 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const ready = ref(false)
   const loading = ref(false)
+  // True when the backend runs in local-dev DEV_AUTH mode (no real SSO).
+  const devMode = ref(false)
 
   const isAuthenticated = computed(() => token.value !== null)
 
@@ -69,6 +77,18 @@ export const useAuthStore = defineStore('auth', () => {
    * leaves the app unauthenticated for the router guard to redirect.
    */
   async function initialize(): Promise<void> {
+    // Local-dev bypass: if the backend reports DEV_AUTH, skip OIDC entirely and
+    // sign in as the fixed dev user with a sentinel token.
+    const cfg = await getClientConfig().catch(() => null)
+    if (cfg?.dev_auth) {
+      devMode.value = true
+      token.value = DEV_TOKEN
+      setAuthToken(DEV_TOKEN)
+      await loadUser()
+      ready.value = true
+      return
+    }
+
     const configured = await initOidc()
     if (!configured) {
       ready.value = true
@@ -123,6 +143,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** User-initiated logout: clear the in-memory session and go to /login. */
   async function logout(): Promise<void> {
+    // In dev-auth mode there is no IdP session to end and nothing to log into,
+    // so "sign out" just re-establishes the fixed dev session.
+    if (devMode.value) {
+      token.value = DEV_TOKEN
+      setAuthToken(DEV_TOKEN)
+      await loadUser()
+      return
+    }
     clearSession()
     if (isOidcConfigured()) {
       // Drop the local user so a later visit re-runs silent sign-in cleanly.
@@ -159,6 +187,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     ready,
     loading,
+    devMode,
     isAuthenticated,
     initialize,
     login,

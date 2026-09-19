@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { isOidcConfigured } from '../auth/oidc'
 
 const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 const submitting = ref(false)
 
 const configured = computed(() => isOidcConfigured())
@@ -14,6 +15,19 @@ const configured = computed(() => isOidcConfigured())
 const redirectTo = computed(() => {
   const target = route.query.redirect
   return typeof target === 'string' ? target : '/'
+})
+
+onMounted(() => {
+  // Already signed in (e.g. dev-auth auto-login) — there is nothing to do here.
+  if (auth.isAuthenticated) {
+    void router.replace(redirectTo.value)
+    return
+  }
+  // TM-34: when SSO is configured the only action on this screen is "sign in",
+  // so start the redirect automatically rather than waiting for a click.
+  if (configured.value) {
+    void signIn()
+  }
 })
 
 async function signIn(): Promise<void> {
