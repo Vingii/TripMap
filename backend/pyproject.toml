@@ -37,6 +37,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+# Never let `ruff --fix` delete imports: unused imports are still reported (so CI
+# and pre-commit flag genuinely dead ones), but removal is left to the author.
+unfixable = ["F401"]
 
 [tool.mypy]
 python_version = "3.12"

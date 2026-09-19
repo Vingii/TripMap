@@ -17,10 +17,16 @@ const redirectTo = computed(() => {
   return typeof target === 'string' ? target : '/'
 })
 
-// Already signed in (e.g. dev-auth auto-login) — there is nothing to do here.
 onMounted(() => {
+  // Already signed in (e.g. dev-auth auto-login) — there is nothing to do here.
   if (auth.isAuthenticated) {
     void router.replace(redirectTo.value)
+    return
+  }
+  // TM-34: when SSO is configured the only action on this screen is "sign in",
+  // so start the redirect automatically rather than waiting for a click.
+  if (configured.value) {
+    void signIn()
   }
 })
 

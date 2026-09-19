@@ -15,6 +15,9 @@ services:
       STATIC_DIR: /app/static
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8000"]'
       DATABASE_URL: postgresql+asyncpg://tripmap:tripmap@db:5432/tripmap
+      # Local dev has no OIDC provider — bypass auth and run as a fixed local
+      # user. This stack is for local testing only; never use it in production.
+      DEV_AUTH: "true"
     volumes:
       # `:z` relabels the host dir with the shared container SELinux label so
       # the non-root user inside the container can read it on Fedora/RHEL.
