@@ -4,13 +4,19 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings, get_settings
 from app.db import get_session
 from app.models.user import User
-from app.services.auth import AuthError, OIDCVerifier
+from app.services.auth import AuthError, OIDCVerifier, TokenClaims
 from app.services.geocode import GeocodeService
 from app.services.users import get_or_create_user
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+# The fixed identity every request runs as when DEV_AUTH is enabled (local dev
+# only). Stable so the same User row is reused across restarts.
+_DEV_CLAIMS = TokenClaims(sub="dev-auth|local", email="dev@localhost", name="Local Dev")
 
 
 def get_geocode_service(request: Request) -> GeocodeService:
@@ -34,9 +40,13 @@ _bearer = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     db: SessionDep,
+    settings: SettingsDep,
     verifier: OIDCVerifierDep,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> User:
+    # Local-dev bypass: accept every request as the fixed dev user, no token needed.
+    if settings.dev_auth:
+        return await get_or_create_user(db, _DEV_CLAIMS)
     if credentials is None:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,

@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     static_dir: Path | None = None
     database_url: str = "postgresql+asyncpg://tripmap:tripmap@localhost:5432/tripmap"
 
+    # Local-dev escape hatch. When true, protected endpoints skip OIDC entirely
+    # and run as a single fixed local user, so the app is usable without an IdP.
+    # NEVER enable in production — it disables authentication outright.
+    dev_auth: bool = False
+
     # OIDC (Authentik). Bearer JWTs are verified against the provider's JWKS.
     # When the issuer/audience are unset (e.g. local dev without an IdP) every
     # protected request fails verification and returns 401.

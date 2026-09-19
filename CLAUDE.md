@@ -112,6 +112,16 @@ Integration tests require a Postgres test database reachable at `TEST_DATABASE_U
 
 The application database is read from `DATABASE_URL` (defaults to `postgresql+asyncpg://tripmap:tripmap@localhost:5432/tripmap`). Start the `db` service from the repo root with `docker compose up -d db`, then run `make migrate` to apply schema migrations.
 
+#### Local auth without SSO
+
+Local dev normally has no OIDC provider, which otherwise leaves the login screen stuck on *"Single sign-on is not configured"*. Set `DEV_AUTH=true` on the backend to bypass authentication entirely: every request runs as a fixed local user (`dev@localhost`) and the SPA auto-signs-in without redirecting to an IdP. Put it in `backend/.env` or pass it inline:
+
+```sh
+DEV_AUTH=true uv run uvicorn app.main:app --reload
+```
+
+**Never enable `DEV_AUTH` in production** — it disables authentication. It defaults to `false` and is intended solely for local development.
+
 ### Frontend
 
 The frontend is a Vite-driven Vue 3 + TypeScript project under `frontend/`. Node 22+ and npm are required.

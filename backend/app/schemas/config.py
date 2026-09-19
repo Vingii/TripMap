@@ -13,3 +13,6 @@ class ClientConfig(BaseModel):
     # For a public client the OAuth2 client ID and the token audience are the
     # same value, so the SPA derives its client ID from ``OIDC_AUDIENCE``.
     oidc_client_id: str
+    # Local-dev only: when true the SPA auto-authenticates as a fixed user and
+    # skips the OIDC flow entirely (mirrors the backend's DEV_AUTH).
+    dev_auth: bool = False

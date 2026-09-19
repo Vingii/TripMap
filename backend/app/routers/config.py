@@ -21,4 +21,5 @@ async def get_client_config(
     return ClientConfig(
         oidc_issuer=settings.oidc_issuer,
         oidc_client_id=settings.oidc_audience,
+        dev_auth=settings.dev_auth,
     )
