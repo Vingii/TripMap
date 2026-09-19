@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type { User as OidcUser } from 'oidc-client-ts'
 import { setAuthToken, setUnauthorizedHandler } from '../api/client'
 import { getMe, type User } from '../api/me'
+import { useSettingsStore } from './settings'
 import { router } from '../router'
 import {
   CALLBACK_PATH,
@@ -48,7 +49,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
     loading.value = true
     try {
-      user.value = await getMe()
+      const profile = await getMe()
+      user.value = profile
+      // Apply the user's saved preferences to the live stores.
+      useSettingsStore().hydrate(profile.settings)
     } catch {
       // A 401 is handled by the unauthorized handler; other errors just leave
       // the profile empty without tearing down an otherwise valid session.

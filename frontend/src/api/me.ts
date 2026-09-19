@@ -6,10 +6,24 @@ export type Theme = 'light' | 'dark' | 'system'
 export type Projection = 'flat' | 'globe'
 export type MapFilter = 'all' | 'visited'
 
+// Settings as returned by the API. The Immich API key is write-only: the server
+// never echoes it back, only whether one is currently stored.
 export interface UserSettings {
   theme: Theme
   default_projection: Projection
   default_map_filter: MapFilter
+  default_visited: boolean
+  immich_api_key_set: boolean
+}
+
+// Partial settings patch — only supplied keys change. Send `immich_api_key` as
+// '' or null to clear a previously stored key.
+export interface UserSettingsUpdate {
+  theme?: Theme
+  default_projection?: Projection
+  default_map_filter?: MapFilter
+  default_visited?: boolean
+  immich_api_key?: string | null
 }
 
 export interface User {
@@ -30,7 +44,7 @@ export async function getMySettings(): Promise<UserSettings> {
 }
 
 export async function updateMySettings(
-  patch: Partial<UserSettings>,
+  patch: UserSettingsUpdate,
 ): Promise<UserSettings> {
   return parse<UserSettings>(
     await apiFetch('/api/me/settings', {
