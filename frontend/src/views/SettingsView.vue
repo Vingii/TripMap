@@ -2,7 +2,9 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useSettingsStore } from '../stores/settings'
+import { useConfigStore } from '../stores/config'
 import type {
+  BaseLayer,
   MapFilter,
   Projection,
   Theme,
@@ -11,11 +13,14 @@ import type {
 
 const auth = useAuthStore()
 const settings = useSettingsStore()
+// Mapy.com is only offered as a base layer when the backend has a key for it.
+const config = useConfigStore()
 
 interface FormState {
   theme: Theme
   default_projection: Projection
   default_map_filter: MapFilter
+  default_base_layer: BaseLayer
   default_visited: boolean
   // A newly typed Immich key; blank means "leave the stored key untouched".
   immichKey: string
@@ -27,6 +32,7 @@ const form = reactive<FormState>({
   theme: 'system',
   default_projection: 'flat',
   default_map_filter: 'all',
+  default_base_layer: 'osm',
   default_visited: true,
   immichKey: '',
   clearImmich: false,
@@ -44,6 +50,7 @@ function seedFromSettings(): void {
   form.theme = s.theme
   form.default_projection = s.default_projection
   form.default_map_filter = s.default_map_filter
+  form.default_base_layer = s.default_base_layer
   form.default_visited = s.default_visited
   form.immichKey = ''
   form.clearImmich = false
@@ -59,6 +66,9 @@ onMounted(async () => {
       saveState.value = 'error'
     }
   }
+  // Decides whether the base-layer field is shown at all; a failure here just
+  // leaves it hidden, same as an unconfigured key.
+  void config.load().catch(() => undefined)
   seedFromSettings()
 })
 
@@ -68,6 +78,7 @@ async function onSubmit(): Promise<void> {
     theme: form.theme,
     default_projection: form.default_projection,
     default_map_filter: form.default_map_filter,
+    default_base_layer: form.default_base_layer,
     default_visited: form.default_visited,
   }
   // Only touch the Immich key when the user typed a new one or asked to clear it.
@@ -146,6 +157,19 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
           <option value="all">All</option>
           <option value="visited">My visited</option>
         </select>
+      </label>
+
+      <!-- Hidden entirely unless the server has a Mapy.com key, in which case
+           OpenStreetMap is the only base layer there is to pick. -->
+      <label v-if="config.mapyApiKey" class="block space-y-1">
+        <span :class="labelClass">Default base map</span>
+        <select v-model="form.default_base_layer" :class="inputClass">
+          <option value="osm">OpenStreetMap</option>
+          <option value="mapy">Mapy.com</option>
+        </select>
+        <span class="block text-xs text-slate-500 dark:text-slate-400">
+          Applies to the flat map; the globe always uses OpenStreetMap.
+        </span>
       </label>
 
       <label class="flex items-center gap-3">

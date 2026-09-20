@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     nominatim_rate_limit_seconds: float = 1.0
     nominatim_search_limit: int = 10
 
+    # Mapy.com (Seznam) REST Tiles API. When set, the flat map offers Mapy.com
+    # as an alternative base layer; when empty the option is hidden and the map
+    # stays on OpenStreetMap. The key is handed to the browser via
+    # ``GET /api/config`` because tiles are requested directly by the client —
+    # it is a public, origin-restricted key, not a secret.
+    mapy_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

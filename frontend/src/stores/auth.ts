@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import type { User as OidcUser } from 'oidc-client-ts'
 import { setAuthToken, setUnauthorizedHandler } from '../api/client'
 import { getMe, type User } from '../api/me'
-import { getClientConfig } from '../api/config'
+import { useConfigStore } from './config'
 import { useSettingsStore } from './settings'
 import { router } from '../router'
 import {
@@ -78,9 +78,12 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function initialize(): Promise<void> {
     // Local-dev bypass: if the backend reports DEV_AUTH, skip OIDC entirely and
-    // sign in as the fixed dev user with a sentinel token.
-    const cfg = await getClientConfig().catch(() => null)
-    if (cfg?.dev_auth) {
+    // sign in as the fixed dev user with a sentinel token. Loading through the
+    // config store also warms it for later readers (the map's base layers), so
+    // they need no fetch of their own.
+    const configStore = useConfigStore()
+    await configStore.load().catch(() => undefined)
+    if (configStore.config?.dev_auth) {
       devMode.value = true
       token.value = DEV_TOKEN
       setAuthToken(DEV_TOKEN)

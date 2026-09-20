@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict, field_validator
 Theme = Literal["light", "dark", "system"]
 Projection = Literal["flat", "globe"]
 MapFilter = Literal["all", "visited"]
+# Flat-map base tile layer. "mapy" is only selectable when the backend has a
+# MAPY_API_KEY; with no key the SPA falls back to "osm" without rewriting the
+# stored preference, so the choice survives a key being temporarily removed.
+BaseLayer = Literal["osm", "mapy"]
 
 
 class UserSettings(BaseModel):
@@ -22,6 +26,7 @@ class UserSettings(BaseModel):
     theme: Theme = "system"
     default_projection: Projection = "flat"
     default_map_filter: MapFilter = "all"
+    default_base_layer: BaseLayer = "osm"
     default_visited: bool = True
     immich_api_key: str | None = None
 
@@ -46,6 +51,7 @@ class UserSettingsUpdate(BaseModel):
     theme: Theme | None = None
     default_projection: Projection | None = None
     default_map_filter: MapFilter | None = None
+    default_base_layer: BaseLayer | None = None
     default_visited: bool | None = None
     immich_api_key: str | None = None
 
@@ -60,6 +66,7 @@ class UserSettingsRead(BaseModel):
     theme: Theme
     default_projection: Projection
     default_map_filter: MapFilter
+    default_base_layer: BaseLayer
     default_visited: bool
     immich_api_key_set: bool
 
@@ -69,6 +76,7 @@ class UserSettingsRead(BaseModel):
             theme=settings.theme,
             default_projection=settings.default_projection,
             default_map_filter=settings.default_map_filter,
+            default_base_layer=settings.default_base_layer,
             default_visited=settings.default_visited,
             immich_api_key_set=bool(settings.immich_api_key),
         )

@@ -1,4 +1,4 @@
-// Runtime OIDC configuration, served by the backend from its own environment.
+// Runtime configuration, served by the backend from its own environment.
 // Fetched before the SPA can start a login flow so the published image can be
 // pointed at any Authentik provider via env vars — nothing is baked in at build
 // time. This is a public endpoint, so it is called without a bearer token.
@@ -8,6 +8,9 @@ export interface ClientConfig {
   oidc_client_id: string
   // Local-dev only: the app auto-authenticates and skips the OIDC flow.
   dev_auth?: boolean
+  // Mapy.com REST Tiles API key; empty or absent when unconfigured, in which
+  // case the Mapy.com base layer is not offered.
+  mapy_api_key?: string
 }
 
 export async function getClientConfig(): Promise<ClientConfig> {
