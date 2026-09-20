@@ -6,6 +6,8 @@ import 'leaflet.markercluster'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { useMapStore } from '../stores/map'
+import { useConfigStore } from '../stores/config'
+import { useBaseLayerStore } from '../stores/baseLayer'
 import type { Location } from '../api/locations'
 
 const props = defineProps<{ locations: Location[] }>()
@@ -18,12 +20,34 @@ const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const OSM_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
 
+// Mapy.com (Seznam) REST Tiles API. `basic` is the general-purpose set; the
+// 256px variant matches Leaflet's default tile size. The key comes from the
+// backend at runtime (see stores/config), so it is never baked into the build.
+// OSM stays the default base layer, which also means Mapy.com credits are only
+// spent when a user explicitly switches to it.
+const MAPY_TILE_URL = 'https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}'
+// tiles.json is the authoritative source for the set's zoom range; 19 matches
+// the OSM layer so switching base layers never forces a zoom change.
+const MAPY_MAX_ZOOM = 19
+// Mandatory attribution per developer.mapy.com/rest-api-mapy-cz/atribution:
+// the copyright text links to the licence page, and the logo (below) sits over
+// the map at >= 30px and links to mapy.com.
+const MAPY_ATTRIBUTION =
+  '&copy; <a href="https://api.mapy.com/copyright" target="_blank" rel="noopener">Seznam.cz a.s. and others</a>'
+const MAPY_LOGO_URL = 'https://api.mapy.com/img/api/logo.svg'
+const MAPY_LOGO_HEIGHT_PX = 30
+
 const store = useMapStore()
+const config = useConfigStore()
+const baseLayer = useBaseLayerStore()
 const containerEl = useTemplateRef<HTMLDivElement>('container')
 
 let map: L.Map | null = null
 let markerLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
+let osmLayer: L.TileLayer | null = null
+let mapyLayer: L.TileLayer | null = null
+let mapyLogo: L.Control | null = null
 
 const MARKER_COLOR = '#6366f1'
 
@@ -99,6 +123,76 @@ function renderMarkers(): void {
   markerLayer.addTo(map)
 }
 
+// Clickable Mapy.com logo pinned over the map, as their terms require whenever
+// their tiles are on screen. Added and removed with the layer itself, so it is
+// never shown while OpenStreetMap is active.
+function mapyLogoControl(): L.Control {
+  // Bottom-right sits directly above the attribution text and clear of the
+  // location panel, which MapView overlays on the bottom-left corner.
+  const control = new L.Control({ position: 'bottomright' })
+  control.onAdd = (): HTMLElement => {
+    // `leaflet-control` is what makes the link clickable — Leaflet sets
+    // `pointer-events: none` on the corner containers themselves.
+    const link = L.DomUtil.create('a', 'leaflet-control')
+    link.href = 'https://mapy.com/'
+    link.target = '_blank'
+    link.rel = 'noopener'
+    link.title = 'Mapy.com'
+    link.classList.add('block', 'rounded', 'bg-white/80', 'p-1', 'shadow')
+    const logo = L.DomUtil.create('img', '', link)
+    logo.src = MAPY_LOGO_URL
+    logo.alt = 'Mapy.com'
+    logo.style.height = `${MAPY_LOGO_HEIGHT_PX}px`
+    logo.style.display = 'block'
+    // Otherwise clicking the logo also drops a new-location pin underneath it.
+    L.DomEvent.disableClickPropagation(link)
+    return link
+  }
+  return control
+}
+
+function showMapyLogo(visible: boolean): void {
+  if (!map) return
+  if (visible && !mapyLogo) {
+    mapyLogo = mapyLogoControl().addTo(map)
+  } else if (!visible && mapyLogo) {
+    mapyLogo.remove()
+    mapyLogo = null
+  }
+}
+
+// Adds Mapy.com as a second base layer plus the layers control to switch
+// between it and OSM. Only called once a key is known to exist — with no key
+// the map keeps a single base layer and shows no switcher at all, and a saved
+// "mapy" preference is left untouched so it applies again once a key returns.
+function addMapyBaseLayer(apiKey: string): void {
+  if (!map || !osmLayer || mapyLayer) return
+
+  mapyLayer = L.tileLayer(
+    `${MAPY_TILE_URL}?apikey=${encodeURIComponent(apiKey)}`,
+    { maxZoom: MAPY_MAX_ZOOM, attribution: MAPY_ATTRIBUTION },
+  )
+  L.control
+    .layers({ OpenStreetMap: osmLayer, 'Mapy.com': mapyLayer })
+    .addTo(map)
+
+  // Honour the stored preference. `baselayerchange` only fires on a click in
+  // the control, so the logo has to be shown by hand here.
+  if (baseLayer.baseLayer === 'mapy') {
+    // Add before removing so no frame renders without a base layer.
+    mapyLayer.addTo(map)
+    map.removeLayer(osmLayer)
+    showMapyLogo(true)
+  }
+
+  map.on('baselayerchange', (event: L.LayersControlEvent) => {
+    const mapyActive = event.layer === mapyLayer
+    showMapyLogo(mapyActive)
+    // Session-level override; the saved account default lives in Settings.
+    baseLayer.set(mapyActive ? 'mapy' : 'osm')
+  })
+}
+
 onMounted(() => {
   if (!containerEl.value) return
 
@@ -111,7 +205,7 @@ onMounted(() => {
   map.zoomControl.setPosition('topright')
   map.attributionControl.setPrefix(false)
 
-  L.tileLayer(OSM_TILE_URL, {
+  osmLayer = L.tileLayer(OSM_TILE_URL, {
     maxZoom: 19,
     attribution: OSM_ATTRIBUTION,
   }).addTo(map)
@@ -132,16 +226,33 @@ onMounted(() => {
 
   resizeObserver = new ResizeObserver(() => map?.invalidateSize())
   resizeObserver.observe(containerEl.value)
+
+  // The key lives in the backend's environment. On the first mount it arrives
+  // after this point and the watcher below wires the layer up; on a remount
+  // (e.g. toggling back from the globe) the store already has it.
+  if (config.mapyApiKey) addMapyBaseLayer(config.mapyApiKey)
+  void config.load().catch(() => undefined)
 })
 
 watch(() => props.locations, renderMarkers)
 
+watch(
+  () => config.mapyApiKey,
+  (apiKey) => {
+    if (apiKey) addMapyBaseLayer(apiKey)
+  },
+)
+
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
+  // Disposes the tile layers, the layers control and the logo control with it.
   map?.remove()
   map = null
   markerLayer = null
+  osmLayer = null
+  mapyLayer = null
+  mapyLogo = null
 })
 
 // Fallback zoom for the rare result that carries no bounding box.

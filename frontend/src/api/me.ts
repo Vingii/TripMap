@@ -5,6 +5,7 @@ import { apiFetch, parse } from './client'
 export type Theme = 'light' | 'dark' | 'system'
 export type Projection = 'flat' | 'globe'
 export type MapFilter = 'all' | 'visited'
+export type BaseLayer = 'osm' | 'mapy'
 
 // Settings as returned by the API. The Immich API key is write-only: the server
 // never echoes it back, only whether one is currently stored.
@@ -12,6 +13,7 @@ export interface UserSettings {
   theme: Theme
   default_projection: Projection
   default_map_filter: MapFilter
+  default_base_layer: BaseLayer
   default_visited: boolean
   immich_api_key_set: boolean
 }
@@ -22,6 +24,7 @@ export interface UserSettingsUpdate {
   theme?: Theme
   default_projection?: Projection
   default_map_filter?: MapFilter
+  default_base_layer?: BaseLayer
   default_visited?: boolean
   immich_api_key?: string | null
 }

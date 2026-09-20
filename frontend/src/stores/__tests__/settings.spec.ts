@@ -5,6 +5,7 @@ import { useSettingsStore } from '../settings'
 import { useThemeStore } from '../theme'
 import { useProjectionStore } from '../projection'
 import { useMapFilterStore } from '../mapFilter'
+import { useBaseLayerStore } from '../baseLayer'
 import type { UserSettings } from '../../api/me'
 
 vi.mock('../../api/me', () => ({
@@ -19,6 +20,7 @@ function makeSettings(overrides: Partial<UserSettings> = {}): UserSettings {
     theme: 'system',
     default_projection: 'flat',
     default_map_filter: 'all',
+    default_base_layer: 'osm',
     default_visited: true,
     immich_api_key_set: false,
     ...overrides,
@@ -48,6 +50,7 @@ describe('settings store', () => {
         theme: 'dark',
         default_projection: 'globe',
         default_map_filter: 'visited',
+        default_base_layer: 'mapy',
       }),
     )
 
@@ -55,6 +58,7 @@ describe('settings store', () => {
     expect(useThemeStore().theme).toBe('dark')
     expect(useProjectionStore().projection).toBe('globe')
     expect(useMapFilterStore().filter).toBe('visited')
+    expect(useBaseLayerStore().baseLayer).toBe('mapy')
   })
 
   it('save persists the patch and re-applies the result', async () => {

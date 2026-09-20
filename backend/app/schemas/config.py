@@ -16,3 +16,7 @@ class ClientConfig(BaseModel):
     # Local-dev only: when true the SPA auto-authenticates as a fixed user and
     # skips the OIDC flow entirely (mirrors the backend's DEV_AUTH).
     dev_auth: bool = False
+    # Mapy.com REST Tiles API key, or empty when unconfigured — the SPA hides
+    # the Mapy.com base layer in that case. Browser-visible by necessity: tile
+    # requests go straight from the client to api.mapy.com.
+    mapy_api_key: str = ""

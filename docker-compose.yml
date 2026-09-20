@@ -18,6 +18,9 @@ services:
       # Local dev has no OIDC provider — bypass auth and run as a fixed local
       # user. This stack is for local testing only; never use it in production.
       DEV_AUTH: "true"
+      # Optional — set MAPY_API_KEY in your shell (or a root .env) to try the
+      # Mapy.com base layer locally; blank leaves the map on OpenStreetMap.
+      MAPY_API_KEY: ${MAPY_API_KEY:-}
     volumes:
       # `:z` relabels the host dir with the shared container SELinux label so
       # the non-root user inside the container can read it on Fedora/RHEL.

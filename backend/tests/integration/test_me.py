@@ -17,6 +17,7 @@ async def test_get_me_returns_profile_and_default_settings(client: AsyncClient) 
         "theme": "system",
         "default_projection": "flat",
         "default_map_filter": "all",
+        "default_base_layer": "osm",
         "default_visited": True,
         "immich_api_key_set": False,
     }
@@ -45,6 +46,15 @@ async def test_patch_settings_merges_partial_update(client: AsyncClient) -> None
     me = (await client.get("/api/me")).json()
     assert me["settings"]["theme"] == "dark"
     assert me["settings"]["default_projection"] == "globe"
+
+
+async def test_patch_default_base_layer(client: AsyncClient) -> None:
+    response = await client.patch("/api/me/settings", json={"default_base_layer": "mapy"})
+    assert response.status_code == 200
+    assert response.json()["default_base_layer"] == "mapy"
+
+    me = (await client.get("/api/me")).json()
+    assert me["settings"]["default_base_layer"] == "mapy"
 
 
 async def test_patch_default_visited(client: AsyncClient) -> None:

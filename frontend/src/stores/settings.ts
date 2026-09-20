@@ -9,6 +9,7 @@ import {
 import { useThemeStore } from './theme'
 import { useProjectionStore } from './projection'
 import { useMapFilterStore } from './mapFilter'
+import { useBaseLayerStore } from './baseLayer'
 
 // Owns the current user's persisted settings and keeps the live preference
 // stores (theme / projection / map filter) in sync with them. The Settings page
@@ -21,6 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
     useThemeStore().set(s.theme)
     useProjectionStore().set(s.default_projection)
     useMapFilterStore().set(s.default_map_filter)
+    useBaseLayerStore().set(s.default_base_layer)
   }
 
   // Seed from the profile loaded at login, applying the saved defaults.
