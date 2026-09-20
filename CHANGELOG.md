@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Vingii/TripMap/compare/v1.4.0...v1.5.0) (2026-09-20)
+
+
+### Features
+
+* Mapy.com tileset (TM-33) ([#28](https://github.com/Vingii/TripMap/issues/28)) ([7944865](https://github.com/Vingii/TripMap/commit/7944865b636ae8cf2b2a981cfff86c60a1648652))
+
 ## [1.4.0](https://github.com/Vingii/TripMap/compare/v1.3.0...v1.4.0) (2026-09-19)
 
 
