@@ -161,36 +161,37 @@ function showMapyLogo(visible: boolean): void {
   }
 }
 
-// Adds Mapy.com as a second base layer plus the layers control to switch
-// between it and OSM. Only called once a key is known to exist — with no key
-// the map keeps a single base layer and shows no switcher at all, and a saved
-// "mapy" preference is left untouched so it applies again once a key returns.
-function addMapyBaseLayer(apiKey: string): void {
-  if (!map || !osmLayer || mapyLayer) return
+// Draws whichever base layer the store selects, keeping the Mapy.com logo in
+// step. Falls back to OSM whenever the Mapy layer does not exist (no key
+// configured) without rewriting the stored preference, so a saved "mapy"
+// choice applies again once a key returns.
+//
+// The switcher itself is a button group in MapView rather than Leaflet's own
+// layers control: the map's other toggles are built that way, and Leaflet's
+// expands on hover into the space those toggles occupy.
+function applyBaseLayer(): void {
+  if (!map || !osmLayer) return
+
+  const next: L.TileLayer =
+    (baseLayer.baseLayer === 'mapy' ? mapyLayer : null) ?? osmLayer
+  const previous = next === osmLayer ? mapyLayer : osmLayer
+
+  // Add before removing so no frame renders without a base layer.
+  if (!map.hasLayer(next)) next.addTo(map)
+  if (previous && map.hasLayer(previous)) map.removeLayer(previous)
+  showMapyLogo(next === mapyLayer)
+}
+
+// Builds the Mapy.com tile layer. Only called once a key is known to exist —
+// with no key the map simply never gains a second base layer.
+function addMapyTileLayer(apiKey: string): void {
+  if (!map || mapyLayer) return
 
   mapyLayer = L.tileLayer(
     `${MAPY_TILE_URL}?apikey=${encodeURIComponent(apiKey)}`,
     { maxZoom: MAPY_MAX_ZOOM, attribution: MAPY_ATTRIBUTION },
   )
-  L.control
-    .layers({ OpenStreetMap: osmLayer, 'Mapy.com': mapyLayer })
-    .addTo(map)
-
-  // Honour the stored preference. `baselayerchange` only fires on a click in
-  // the control, so the logo has to be shown by hand here.
-  if (baseLayer.baseLayer === 'mapy') {
-    // Add before removing so no frame renders without a base layer.
-    mapyLayer.addTo(map)
-    map.removeLayer(osmLayer)
-    showMapyLogo(true)
-  }
-
-  map.on('baselayerchange', (event: L.LayersControlEvent) => {
-    const mapyActive = event.layer === mapyLayer
-    showMapyLogo(mapyActive)
-    // Session-level override; the saved account default lives in Settings.
-    baseLayer.set(mapyActive ? 'mapy' : 'osm')
-  })
+  applyBaseLayer()
 }
 
 onMounted(() => {
@@ -230,7 +231,7 @@ onMounted(() => {
   // The key lives in the backend's environment. On the first mount it arrives
   // after this point and the watcher below wires the layer up; on a remount
   // (e.g. toggling back from the globe) the store already has it.
-  if (config.mapyApiKey) addMapyBaseLayer(config.mapyApiKey)
+  if (config.mapyApiKey) addMapyTileLayer(config.mapyApiKey)
   void config.load().catch(() => undefined)
 })
 
@@ -239,9 +240,11 @@ watch(() => props.locations, renderMarkers)
 watch(
   () => config.mapyApiKey,
   (apiKey) => {
-    if (apiKey) addMapyBaseLayer(apiKey)
+    if (apiKey) addMapyTileLayer(apiKey)
   },
 )
+
+watch(() => baseLayer.baseLayer, applyBaseLayer)
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()

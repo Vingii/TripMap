@@ -9,6 +9,8 @@ import LocationPanel from '../components/LocationPanel.vue'
 import { useLocationsStore } from '../stores/locations'
 import { isMapFilter, useMapFilterStore } from '../stores/mapFilter'
 import { useProjectionStore } from '../stores/projection'
+import { useBaseLayerStore } from '../stores/baseLayer'
+import { useConfigStore } from '../stores/config'
 import { useSettingsStore } from '../stores/settings'
 import type { Location } from '../api/locations'
 import type { BoundingBox, GeocodeResult } from '../api/geocode'
@@ -16,6 +18,10 @@ import type { BoundingBox, GeocodeResult } from '../api/geocode'
 const store = useLocationsStore()
 const mapFilter = useMapFilterStore()
 const projection = useProjectionStore()
+const baseLayer = useBaseLayerStore()
+// Gates the base-layer switcher: Mapy.com is only offered when the backend has
+// a key for it, otherwise OpenStreetMap is the only choice there is.
+const config = useConfigStore()
 const settings = useSettingsStore()
 const route = useRoute()
 const router = useRouter()
@@ -62,6 +68,9 @@ const form = reactive<FormState>({
 
 onMounted(() => {
   void store.fetchAll()
+  // Decides whether the base-layer switcher is shown; a failure just leaves it
+  // hidden, same as an unconfigured key.
+  void config.load().catch(() => undefined)
   // Hydrate the filter from the URL so a shared link reproduces the view.
   if (isMapFilter(route.query.filter)) {
     mapFilter.set(route.query.filter)
@@ -267,6 +276,38 @@ async function onToggleVisited(): Promise<void> {
         @click="projection.set('globe')"
       >
         Globe
+      </button>
+    </div>
+
+    <!-- Base map switcher: flat map only (the globe is always OpenStreetMap),
+         and only when the server has a Mapy.com key to offer. -->
+    <div
+      v-if="projection.projection === 'flat' && config.mapyApiKey"
+      class="absolute top-28 right-16 z-[1000] inline-flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm font-medium shadow-sm dark:border-slate-600 dark:bg-slate-800"
+    >
+      <button
+        type="button"
+        class="px-3 py-2"
+        :class="
+          baseLayer.baseLayer === 'osm'
+            ? 'bg-indigo-600 text-white'
+            : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
+        "
+        @click="baseLayer.set('osm')"
+      >
+        OSM
+      </button>
+      <button
+        type="button"
+        class="px-3 py-2"
+        :class="
+          baseLayer.baseLayer === 'mapy'
+            ? 'bg-indigo-600 text-white'
+            : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
+        "
+        @click="baseLayer.set('mapy')"
+      >
+        Mapy.com
       </button>
     </div>
 
