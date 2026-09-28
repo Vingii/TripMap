@@ -19,3 +19,7 @@ class Location(TimestampMixin, Base):
     # ISO 3166-1 alpha-2, derived from Nominatim reverse geocoding at creation time.
     # Nullable: reverse geocoding can fail or return no country (e.g. open ocean).
     country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # ISO 3166-2 first-level subdivision (e.g. "US-CA"), derived alongside
+    # country_code. Nullable: many places have no subdivision Nominatim can name,
+    # and rows created before this column existed are only filled in on backfill.
+    subdivision_code: Mapped[str | None] = mapped_column(String(6), nullable=True)

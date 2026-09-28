@@ -54,6 +54,7 @@ interface FormState {
   lng: number | null
   // Carried from a name-search match so the backend can skip a reverse lookup.
   countryCode: string | null
+  subdivisionCode: string | null
 }
 
 const form = reactive<FormState>({
@@ -64,6 +65,7 @@ const form = reactive<FormState>({
   lat: null,
   lng: null,
   countryCode: null,
+  subdivisionCode: null,
 })
 
 onMounted(() => {
@@ -95,6 +97,7 @@ function openCreate(
   lat: number | null,
   lng: number | null,
   countryCode: string | null = null,
+  subdivisionCode: string | null = null,
 ): void {
   selected.value = null
   Object.assign(form, {
@@ -105,6 +108,7 @@ function openCreate(
     lat,
     lng,
     countryCode,
+    subdivisionCode,
   })
 }
 
@@ -118,7 +122,13 @@ function onMapClick(coords: { lat: number; lng: number }): void {
 function onAddManual(): void {
   const place = lastSearch.value
   if (place) {
-    openCreate(place.name, place.lat, place.lng, place.country_code)
+    openCreate(
+      place.name,
+      place.lat,
+      place.lng,
+      place.country_code,
+      place.subdivision_code,
+    )
   } else {
     openCreate('', null, null)
   }
@@ -146,6 +156,7 @@ function onEdit(): void {
     lat: location.lat,
     lng: location.lng,
     countryCode: null,
+    subdivisionCode: null,
   })
   selected.value = null
 }
@@ -161,12 +172,15 @@ async function onSubmit(payload: {
       const updated = await store.update(form.id, payload)
       if (selected.value?.id === updated.id) selected.value = updated
     } else {
-      // Reuse the search's country code only when the coordinates are unchanged.
+      // Reuse the search's region codes only when the coordinates are unchanged.
       const unchanged = payload.lat === form.lat && payload.lng === form.lng
       const created = await store.create({
         ...payload,
         ...(unchanged && form.countryCode
-          ? { country_code: form.countryCode }
+          ? {
+              country_code: form.countryCode,
+              subdivision_code: form.subdivisionCode,
+            }
           : {}),
       })
       // Honour the user's "mark new locations as visited" default.
