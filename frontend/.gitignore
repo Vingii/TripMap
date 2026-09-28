@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cached Natural Earth downloads for scripts/build-geo.mjs
+.geo-cache

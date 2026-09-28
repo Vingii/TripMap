@@ -135,7 +135,16 @@ npm run preview                            # preview the production build
 npm run lint                               # eslint + prettier --check
 npm run lint:fix                           # eslint --fix + prettier --write
 npm run format                             # prettier --write only
+npm run geo:build                          # regenerate bundled GeoJSON (see below)
 ```
+
+#### Bundled map geometry
+
+The zone choropleth is drawn from Natural Earth GeoJSON committed under `frontend/src/assets/geo/`: `admin-0.geojson` (countries, 1:50m) and `admin-1.geojson` (states/provinces, 1:10m — the 1:50m admin-1 layer only covers nine countries). Features carry just `name`, `country_code` (ISO 3166-1 alpha-2, the join key against a location's `country_code`) and, for admin-1, `code` (ISO 3166-2). Import them through `src/assets/geo/index.ts`, which fetches each layer as a standalone asset on first use so the geometry never lands in the entry chunk.
+
+`frontend/scripts/build-geo.mjs` downloads the sources (pinned to Natural Earth release `v5.1.2`, cached in the gitignored `frontend/.geo-cache/`) and runs them through `mapshaper` to strip unused properties, simplify geometry and round coordinates. Run it with `make geo` from the repo root, or `npm run geo:build -- --refresh` to re-download first.
+
+The processed files are **committed on purpose** — they are pinned, deterministic, and change only when the release or the simplification settings do. Generating them at build time would put a 40 MB download on the Docker release build's critical path and make a fresh clone fail `npm run build`. Regenerate deliberately and commit the result; don't wire the script into CI.
 
 #### PyCharm
 
