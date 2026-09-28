@@ -41,7 +41,7 @@ async def test_search_returns_ranked_matches() -> None:
                     "lat": "52.52",
                     "lon": "13.405",
                     "boundingbox": ["52.33", "52.67", "13.08", "13.76"],
-                    "address": {"country_code": "de"},
+                    "address": {"country_code": "de", "ISO3166-2-lvl4": "DE-BE"},
                 }
             ],
         )
@@ -56,6 +56,7 @@ async def test_search_returns_ranked_matches() -> None:
             "lat": 52.52,
             "lng": 13.405,
             "country_code": "DE",
+            "subdivision_code": "DE-BE",
             "bounding_box": {
                 "south": 52.33,
                 "north": 52.67,
@@ -74,13 +75,26 @@ async def test_search_requires_a_query() -> None:
     assert response.status_code == 422
 
 
-async def test_reverse_returns_country_code() -> None:
-    _set(lambda request: httpx.Response(200, json={"address": {"country_code": "de"}}))
+async def test_reverse_returns_region_codes() -> None:
+    _set(
+        lambda request: httpx.Response(
+            200, json={"address": {"country_code": "de", "ISO3166-2-lvl4": "DE-BE"}}
+        )
+    )
 
     response = await _get("/api/geocode/reverse?lat=52.52&lng=13.405")
 
     assert response.status_code == 200
-    assert response.json() == {"country_code": "DE"}
+    assert response.json() == {"country_code": "DE", "subdivision_code": "DE-BE"}
+
+
+async def test_reverse_omits_a_subdivision_the_geocoder_does_not_report() -> None:
+    _set(lambda request: httpx.Response(200, json={"address": {"country_code": "mc"}}))
+
+    response = await _get("/api/geocode/reverse?lat=43.73&lng=7.42")
+
+    assert response.status_code == 200
+    assert response.json() == {"country_code": "MC", "subdivision_code": None}
 
 
 async def test_reverse_rejects_out_of_range_coordinates() -> None:

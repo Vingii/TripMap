@@ -14,6 +14,7 @@ export interface GeocodeResult {
   lat: number
   lng: number
   country_code: string | null
+  subdivision_code: string | null
   bounding_box: BoundingBox | null
 }
 

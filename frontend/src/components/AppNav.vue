@@ -52,6 +52,15 @@ function toggleTheme(): void {
         </li>
         <li>
           <router-link
+            to="/zones"
+            class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            active-class="text-slate-900 font-medium dark:text-slate-100"
+          >
+            Zones
+          </router-link>
+        </li>
+        <li>
+          <router-link
             to="/albums"
             class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
             active-class="text-slate-900 font-medium dark:text-slate-100"

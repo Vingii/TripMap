@@ -112,6 +112,22 @@ Integration tests require a Postgres test database reachable at `TEST_DATABASE_U
 
 The application database is read from `DATABASE_URL` (defaults to `postgresql+asyncpg://tripmap:tripmap@localhost:5432/tripmap`). Start the `db` service from the repo root with `docker compose up -d db`, then run `make migrate` to apply schema migrations.
 
+#### Region codes on locations
+
+Each location carries `country_code` (ISO 3166-1 alpha-2) and `subdivision_code` (ISO 3166-2, e.g. `US-CA`), both derived from one Nominatim reverse-geocode call at create time and re-derived whenever the coordinates move. A `country_code` supplied by the client is authoritative for *both* codes, so the name-search flow — which already has them from the geocoder — costs no extra Nominatim call. Nominatim reports one `ISO3166-2-lvlN` key per administrative level; the lowest `N` is taken, because that is the first-level subdivision the bundled admin-1 layer models.
+
+Both feed the Zone view's choropleth, which joins them against the bundled Natural Earth GeoJSON entirely in the browser — there is no server-side aggregation endpoint.
+
+Rows created before `subdivision_code` existed stay `NULL`: a migration cannot call Nominatim, and the backfill is deliberately *not* part of the entrypoint — it makes one rate-limited request per location and would hold up startup behind a third-party service. Until it runs, the Zone view still works at country level; subdivisions simply show as empty. Run it once after upgrading:
+
+```sh
+cd backend && make backfill-subdivisions            # local (uv) checkout
+docker compose exec app \
+  python -m app.scripts.backfill_subdivision_codes  # container deployment
+```
+
+Use `exec` rather than `run`: `run` would go through the entrypoint and re-apply migrations first. The command is safe to re-run and to interrupt.
+
 #### Local auth without SSO
 
 Local dev normally has no OIDC provider, which otherwise leaves the login screen stuck on *"Single sign-on is not configured"*. Set `DEV_AUTH=true` on the backend to bypass authentication entirely: every request runs as a fixed local user (`dev@localhost`) and the SPA auto-signs-in without redirecting to an IdP. Put it in `backend/.env` or pass it inline:

@@ -8,6 +8,7 @@ process-wide rate limiter keeps us inside Nominatim's usage policy (max ~1 req/s
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 import httpx
@@ -66,14 +67,17 @@ class GeocodeService:
         return [_to_result(item) for item in payload if _is_locatable(item)]
 
     async def reverse(self, lat: float, lng: float) -> ReverseGeocodeResult:
-        """Resolve the country code (ISO 3166-1 alpha-2) for a coordinate."""
+        """Resolve the country and first-level subdivision for a coordinate."""
         payload = await self._get(
             "/reverse",
             {"lat": lat, "lon": lng, "format": "jsonv2", "addressdetails": 1},
         )
         if not isinstance(payload, dict):
             raise GeocodeError("Unexpected response from geocoding provider")
-        return ReverseGeocodeResult(country_code=_country_code(payload))
+        return ReverseGeocodeResult(
+            country_code=_country_code(payload),
+            subdivision_code=_subdivision_code(payload),
+        )
 
     async def _get(self, path: str, params: dict[str, str | int | float]) -> object:
         await self._rate_limiter.acquire()
@@ -113,12 +117,43 @@ def _country_code(item: dict[str, object]) -> str | None:
     return code.upper() if isinstance(code, str) and code else None
 
 
+# Nominatim reports one ``ISO3166-2-lvlN`` key per OSM administrative level, so a
+# French address carries both the region (lvl4) and the departement (lvl6).
+_SUBDIVISION_KEY = re.compile(r"^ISO3166-2-lvl(\d+)$")
+# Guards against the malformed values Nominatim occasionally emits for disputed
+# or partially-mapped areas.
+_SUBDIVISION_CODE = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,3}$")
+
+
+def _subdivision_code(item: dict[str, object]) -> str | None:
+    """Pick the broadest ISO 3166-2 code Nominatim reports for a place.
+
+    The bundled Natural Earth admin-1 layer models *first-level* subdivisions,
+    which is the lowest administrative level present in the response.
+    """
+    address = item.get("address")
+    if not isinstance(address, dict):
+        return None
+
+    candidates: list[tuple[int, str]] = []
+    for key, value in address.items():
+        level = _SUBDIVISION_KEY.match(str(key))
+        if level is None or not isinstance(value, str):
+            continue
+        code = value.upper()
+        if _SUBDIVISION_CODE.match(code):
+            candidates.append((int(level.group(1)), code))
+
+    return min(candidates)[1] if candidates else None
+
+
 def _to_result(item: dict[str, object]) -> GeocodeResult:
     return GeocodeResult(
         name=str(item.get("display_name", "")),
         lat=float(item["lat"]),  # type: ignore[arg-type]  # Nominatim sends numeric strings
         lng=float(item["lon"]),  # type: ignore[arg-type]
         country_code=_country_code(item),
+        subdivision_code=_subdivision_code(item),
         bounding_box=_bounding_box(item),
     )
 

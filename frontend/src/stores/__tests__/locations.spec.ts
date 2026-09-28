@@ -26,6 +26,7 @@ function makeLocation(overrides: Partial<Location> = {}): Location {
     lat: 52.52,
     lng: 13.405,
     country_code: 'DE',
+    subdivision_code: 'DE-BE',
     visited: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',

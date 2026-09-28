@@ -19,6 +19,10 @@ class GeocodeResult(BaseModel):
     country_code: str | None = Field(
         default=None, description="ISO 3166-1 alpha-2 country code, uppercased."
     )
+    subdivision_code: str | None = Field(
+        default=None,
+        description="ISO 3166-2 code of the first-level subdivision, uppercased.",
+    )
     bounding_box: BoundingBox | None = Field(
         default=None, description="Extent of the place; absent when Nominatim omits it."
     )
@@ -29,4 +33,8 @@ class ReverseGeocodeResult(BaseModel):
 
     country_code: str | None = Field(
         default=None, description="ISO 3166-1 alpha-2 country code, uppercased."
+    )
+    subdivision_code: str | None = Field(
+        default=None,
+        description="ISO 3166-2 code of the first-level subdivision, uppercased.",
     )
