@@ -118,7 +118,15 @@ Each location carries `country_code` (ISO 3166-1 alpha-2) and `subdivision_code`
 
 Both feed the Zone view's choropleth, which joins them against the bundled Natural Earth GeoJSON entirely in the browser — there is no server-side aggregation endpoint.
 
-Rows created before `subdivision_code` existed stay `NULL`: a migration cannot call Nominatim. Run `make backfill-subdivisions` in `backend/` once after upgrading (one rate-limited request per location; safe to re-run and to interrupt).
+Rows created before `subdivision_code` existed stay `NULL`: a migration cannot call Nominatim, and the backfill is deliberately *not* part of the entrypoint — it makes one rate-limited request per location and would hold up startup behind a third-party service. Until it runs, the Zone view still works at country level; subdivisions simply show as empty. Run it once after upgrading:
+
+```sh
+cd backend && make backfill-subdivisions            # local (uv) checkout
+docker compose exec app \
+  python -m app.scripts.backfill_subdivision_codes  # container deployment
+```
+
+Use `exec` rather than `run`: `run` would go through the entrypoint and re-apply migrations first. The command is safe to re-run and to interrupt.
 
 #### Local auth without SSO
 
