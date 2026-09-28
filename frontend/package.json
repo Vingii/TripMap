@@ -10,7 +10,8 @@
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
     "format": "prettier --write .",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "geo:build": "node scripts/build-geo.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -34,6 +35,7 @@
     "eslint-plugin-vue": "^10.9.1",
     "happy-dom": "^20.10.2",
     "jiti": "^2.7.0",
+    "mapshaper": "^0.7.69",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
