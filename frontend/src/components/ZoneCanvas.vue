@@ -4,6 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Feature } from 'geojson'
 import type { ZoneCollection } from '../assets/geo'
+import { useMapStore } from '../stores/map'
 import { useThemeStore } from '../stores/theme'
 import {
   zonePalette,
@@ -22,11 +23,9 @@ const emit = defineEmits<{
   zoneHover: [zone: ZoneInfo | null]
 }>()
 
-// The zone view opens on the whole world rather than restoring the pin map's
-// saved position, and deliberately does not write back to the map store.
-const WORLD_CENTER: L.LatLngTuple = [20, 0]
-const WORLD_ZOOM = 2
-
+// Shares its saved position with the pin map, so switching between the two
+// views (or projections) keeps the same part of the world in frame.
+const store = useMapStore()
 const theme = useThemeStore()
 const containerEl = useTemplateRef<HTMLDivElement>('container')
 
@@ -115,8 +114,8 @@ onMounted(() => {
   // No base tiles: the polygons are the whole picture, so there is no
   // third-party data to attribute either.
   map = L.map(containerEl.value, {
-    center: WORLD_CENTER,
-    zoom: WORLD_ZOOM,
+    center: store.center,
+    zoom: store.zoom,
     zoomControl: true,
     attributionControl: false,
   })
@@ -125,6 +124,14 @@ onMounted(() => {
   renderBorders()
   renderZones()
   applyTheme()
+
+  const persist = (): void => {
+    if (!map) return
+    const c = map.getCenter()
+    store.setView({ center: [c.lat, c.lng], zoom: map.getZoom() })
+  }
+  map.on('moveend', persist)
+  map.on('zoomend', persist)
 
   resizeObserver = new ResizeObserver(() => map?.invalidateSize())
   resizeObserver.observe(containerEl.value)
