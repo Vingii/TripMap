@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/Vingii/TripMap/compare/v1.6.0...v1.6.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* zone view remembers map position ([#34](https://github.com/Vingii/TripMap/issues/34)) ([82f14b6](https://github.com/Vingii/TripMap/commit/82f14b6a649334b4738930b3d7574428145e2050))
+
 ## [1.6.0](https://github.com/Vingii/TripMap/compare/v1.5.0...v1.6.0) (2026-10-01)
 
 
