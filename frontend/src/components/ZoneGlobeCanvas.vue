@@ -4,6 +4,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { GeoJSONSource, StyleSpecification } from 'maplibre-gl'
 import type { ZoneCollection } from '../assets/geo'
+import { useMapStore } from '../stores/map'
 import { useThemeStore } from '../stores/theme'
 import {
   zonePalette,
@@ -21,10 +22,6 @@ const emit = defineEmits<{
   zoneHover: [zone: ZoneInfo | null]
 }>()
 
-// Matches the flat zone canvas: the world, not the pin map's saved position.
-const WORLD_CENTER: [number, number] = [0, 20]
-const WORLD_ZOOM = 2
-
 const ZONE_SOURCE = 'zones'
 const BORDER_SOURCE = 'borders'
 const BACKGROUND_LAYER = 'background'
@@ -34,6 +31,8 @@ const BORDER_LAYER = 'borders-outline'
 
 const EMPTY: ZoneCollection = { type: 'FeatureCollection', features: [] }
 
+// Shares its saved position with the pin map, like the flat zone canvas.
+const store = useMapStore()
 const theme = useThemeStore()
 const containerEl = useTemplateRef<HTMLDivElement>('container')
 
@@ -128,8 +127,10 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: containerEl.value,
     style,
-    center: WORLD_CENTER,
-    zoom: WORLD_ZOOM,
+    // The shared map store keeps coordinates in Leaflet's [lat, lng] order;
+    // maplibre wants [lng, lat].
+    center: [store.center[1], store.center[0]],
+    zoom: store.zoom,
     attributionControl: false,
   })
   map.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -176,6 +177,13 @@ onMounted(() => {
     setHovered(zone)
   })
   map.on('mouseout', () => setHovered(null))
+
+  const persist = (): void => {
+    if (!map) return
+    const c = map.getCenter()
+    store.setView({ center: [c.lat, c.lng], zoom: map.getZoom() })
+  }
+  map.on('moveend', persist)
 
   resizeObserver = new ResizeObserver(() => map?.resize())
   resizeObserver.observe(containerEl.value)
