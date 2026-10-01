@@ -3,94 +3,126 @@ import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { GeoJSONSource, StyleSpecification } from 'maplibre-gl'
+import type { ZoneCollection } from '../assets/geo'
+import { useThemeStore } from '../stores/theme'
 import {
-  boundsOf,
-  zoneTooltip,
+  zonePalette,
   type ZoneFeatureCollection,
   type ZoneInfo,
 } from '../stores/zones'
 
 const props = defineProps<{
   zones: ZoneFeatureCollection
-  /** Non-null while drilled into one country; frames that country's extent. */
-  focusKey: string | null
+  /** Country polygons, stroked on top so country borders stay prominent. */
+  borders: ZoneCollection | null
 }>()
 const emit = defineEmits<{
   zoneClick: [zone: ZoneInfo]
-  background: []
+  zoneHover: [zone: ZoneInfo | null]
 }>()
-
-const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
 
 // Matches the flat zone canvas: the world, not the pin map's saved position.
 const WORLD_CENTER: [number, number] = [0, 20]
 const WORLD_ZOOM = 2
 
-const FILLED = '#6366f1'
-const EMPTY = '#64748b'
-
-const SOURCE_ID = 'zones'
+const ZONE_SOURCE = 'zones'
+const BORDER_SOURCE = 'borders'
+const BACKGROUND_LAYER = 'background'
 const FILL_LAYER = 'zones-fill'
-const LINE_LAYER = 'zones-outline'
+const SUBDIVISION_LINE_LAYER = 'zones-subdivision-outline'
+const BORDER_LAYER = 'borders-outline'
 
+const EMPTY: ZoneCollection = { type: 'FeatureCollection', features: [] }
+
+const theme = useThemeStore()
 const containerEl = useTemplateRef<HTMLDivElement>('container')
 
 let map: maplibregl.Map | null = null
-let popup: maplibregl.Popup | null = null
+let hoveredKey: string | null = null
 let resizeObserver: ResizeObserver | null = null
-
-function setData(): void {
-  const source = map?.getSource(SOURCE_ID) as GeoJSONSource | undefined
-  source?.setData(props.zones)
-  applyFocus()
-}
-
-/** Frames the drilled-into country, or returns to the world view. */
-function applyFocus(): void {
-  if (!map) return
-  if (!props.focusKey) {
-    map.flyTo({ center: WORLD_CENTER, zoom: WORLD_ZOOM })
-    return
-  }
-  const bounds = boundsOf(props.zones)
-  if (bounds) {
-    const [west, south, east, north] = bounds
-    map.fitBounds(
-      [
-        [west, south],
-        [east, north],
-      ],
-      { padding: 40 },
-    )
-  }
-}
 
 function zoneAt(point: maplibregl.Point): ZoneInfo | null {
   const [hit] =
     map?.queryRenderedFeatures(point, { layers: [FILL_LAYER] }) ?? []
-  // Feature properties survive the tile round-trip as plain JSON values.
-  return hit ? (hit.properties as unknown as ZoneInfo) : null
+  if (!hit) return null
+  // Rebuilt field by field: the tile round-trip drops null-valued properties.
+  const p = hit.properties as Partial<ZoneInfo>
+  return {
+    key: String(p.key),
+    name: String(p.name),
+    count: Number(p.count ?? 0),
+    level: p.level === 'subdivision' ? 'subdivision' : 'country',
+    country: p.country ?? null,
+    clickable: p.clickable === true,
+  }
+}
+
+function setHovered(zone: ZoneInfo | null): void {
+  const key = zone?.key ?? null
+  if (key === hoveredKey) return
+  if (hoveredKey !== null) {
+    map?.setFeatureState(
+      { source: ZONE_SOURCE, id: hoveredKey },
+      { hover: false },
+    )
+  }
+  hoveredKey = key
+  if (key !== null) {
+    map?.setFeatureState({ source: ZONE_SOURCE, id: key }, { hover: true })
+  }
+  emit('zoneHover', zone)
+}
+
+function setZones(): void {
+  setHovered(null)
+  const source = map?.getSource(ZONE_SOURCE) as GeoJSONSource | undefined
+  source?.setData(props.zones)
+}
+
+function setBorders(): void {
+  const source = map?.getSource(BORDER_SOURCE) as GeoJSONSource | undefined
+  source?.setData(props.borders ?? EMPTY)
+}
+
+function applyTheme(): void {
+  if (!map) return
+  const palette = zonePalette(theme.isDark)
+  map.getContainer().style.background = palette.space
+  if (!map.getLayer(FILL_LAYER)) return
+  map.setPaintProperty(BACKGROUND_LAYER, 'background-color', palette.water)
+  map.setPaintProperty(FILL_LAYER, 'fill-color', [
+    'case',
+    ['boolean', ['feature-state', 'hover'], false],
+    palette.hover,
+    ['>', ['get', 'count'], 0],
+    palette.filled,
+    palette.empty,
+  ])
+  map.setPaintProperty(
+    SUBDIVISION_LINE_LAYER,
+    'line-color',
+    palette.subdivisionLine,
+  )
+  map.setPaintProperty(BORDER_LAYER, 'line-color', palette.countryLine)
 }
 
 onMounted(() => {
   if (!containerEl.value) return
 
+  // No base tiles: the background layer paints the sphere itself, so the
+  // globe still reads as a globe, and there is no third-party data to credit.
   const style: StyleSpecification = {
     version: 8,
     // Must be part of the initial style — a later setProjection() is lost.
     projection: { type: 'globe' },
-    sources: {
-      osm: {
-        type: 'raster',
-        tiles: [OSM_TILE_URL],
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: OSM_ATTRIBUTION,
+    sources: {},
+    layers: [
+      {
+        id: BACKGROUND_LAYER,
+        type: 'background',
+        paint: { 'background-color': zonePalette(theme.isDark).water },
       },
-    },
-    layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+    ],
   }
 
   map = new maplibregl.Map({
@@ -98,69 +130,67 @@ onMounted(() => {
     style,
     center: WORLD_CENTER,
     zoom: WORLD_ZOOM,
-    attributionControl: { compact: false },
+    attributionControl: false,
   })
   map.addControl(new maplibregl.NavigationControl(), 'top-right')
+  applyTheme()
 
   map.on('load', () => {
     if (!map) return
-    map.addSource(SOURCE_ID, { type: 'geojson', data: props.zones })
-    map.addLayer({
-      id: FILL_LAYER,
-      type: 'fill',
-      source: SOURCE_ID,
-      paint: {
-        'fill-color': ['case', ['>', ['get', 'count'], 0], FILLED, EMPTY],
-        'fill-opacity': ['case', ['>', ['get', 'count'], 0], 0.6, 0.15],
-      },
+    // `promoteId` lets the hover highlight address a zone by its key.
+    map.addSource(ZONE_SOURCE, {
+      type: 'geojson',
+      data: props.zones,
+      promoteId: 'key',
     })
+    map.addSource(BORDER_SOURCE, {
+      type: 'geojson',
+      data: props.borders ?? EMPTY,
+    })
+    map.addLayer({ id: FILL_LAYER, type: 'fill', source: ZONE_SOURCE })
     map.addLayer({
-      id: LINE_LAYER,
+      id: SUBDIVISION_LINE_LAYER,
       type: 'line',
-      source: SOURCE_ID,
-      paint: { 'line-color': '#ffffff', 'line-width': 1 },
+      source: ZONE_SOURCE,
+      filter: ['==', ['get', 'level'], 'subdivision'],
+      paint: { 'line-width': 0.5 },
     })
-    applyFocus()
+    map.addLayer({
+      id: BORDER_LAYER,
+      type: 'line',
+      source: BORDER_SOURCE,
+      paint: { 'line-width': 0.8 },
+    })
+    applyTheme()
   })
 
-  // One handler for both cases: maplibre would otherwise fire a layer-scoped
-  // click and the map-wide click for the same press.
   map.on('click', (event) => {
     const zone = zoneAt(event.point)
-    if (zone) emit('zoneClick', zone)
-    else emit('background')
+    if (zone?.clickable) emit('zoneClick', zone)
   })
 
   map.on('mousemove', (event) => {
     if (!map) return
     const zone = zoneAt(event.point)
-    map.getCanvas().style.cursor = zone ? 'pointer' : ''
-    if (!zone) {
-      popup?.remove()
-      popup = null
-      return
-    }
-    popup ??= new maplibregl.Popup({
-      closeButton: false,
-      closeOnClick: false,
-    })
-    popup.setLngLat(event.lngLat).setText(zoneTooltip(zone)).addTo(map)
+    map.getCanvas().style.cursor = zone?.clickable ? 'pointer' : ''
+    setHovered(zone)
   })
+  map.on('mouseout', () => setHovered(null))
 
   resizeObserver = new ResizeObserver(() => map?.resize())
   resizeObserver.observe(containerEl.value)
 })
 
-watch(() => props.zones, setData)
-watch(() => props.focusKey, applyFocus)
+watch(() => props.zones, setZones)
+watch(() => props.borders, setBorders)
+watch(() => theme.isDark, applyTheme)
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
-  popup?.remove()
-  popup = null
   map?.remove()
   map = null
+  hoveredKey = null
 })
 </script>
 

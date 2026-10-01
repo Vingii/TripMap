@@ -20,13 +20,14 @@ from tests.integration.conftest import Login
 pytestmark = pytest.mark.usefixtures("client")
 
 
-def _stub_geocode(country_code: str | None, subdivision_code: str | None = None) -> GeocodeService:
+def _stub_geocode(country_code: str | None, *subdivision_codes: str) -> GeocodeService:
     def handler(request: httpx.Request) -> httpx.Response:
         address: dict[str, str] = {}
         if country_code:
             address["country_code"] = country_code
-        if subdivision_code:
-            address["ISO3166-2-lvl4"] = subdivision_code
+        # Broadest first, at Nominatim's lvl4, lvl6, … spacing.
+        for index, code in enumerate(subdivision_codes):
+            address[f"ISO3166-2-lvl{4 + 2 * index}"] = code
         return httpx.Response(200, json={"address": address})
 
     transport = httpx.MockTransport(handler)
@@ -36,8 +37,8 @@ def _stub_geocode(country_code: str | None, subdivision_code: str | None = None)
 
 @pytest.fixture(autouse=True)
 def _reverse_geocodes_to_france() -> Iterator[None]:
-    """Default: any reverse-geocode lookup resolves to FR / FR-IDF unless overridden."""
-    app.dependency_overrides[get_geocode_service] = lambda: _stub_geocode("FR", "FR-IDF")
+    """Default: any reverse-geocode lookup resolves to FR / FR-IDF / FR-75 unless overridden."""
+    app.dependency_overrides[get_geocode_service] = lambda: _stub_geocode("FR", "FR-IDF", "FR-75")
     yield
     app.dependency_overrides.pop(get_geocode_service, None)
 
@@ -68,17 +69,17 @@ async def test_create_derives_country_code_from_coordinates(client: AsyncClient)
     assert response.json()["country_code"] == "FR"
 
 
-async def test_create_derives_subdivision_code_from_coordinates(client: AsyncClient) -> None:
+async def test_create_derives_subdivision_codes_from_coordinates(client: AsyncClient) -> None:
     response = await client.post(
         "/api/locations",
         json={"name": "Somewhere", "lat": 48.85, "lng": 2.35},
     )
 
     assert response.status_code == 201
-    assert response.json()["subdivision_code"] == "FR-IDF"
+    assert response.json()["subdivision_codes"] == ["FR-IDF", "FR-75"]
 
 
-async def test_create_keeps_explicit_subdivision_code(client: AsyncClient) -> None:
+async def test_create_keeps_explicit_subdivision_codes(client: AsyncClient) -> None:
     response = await client.post(
         "/api/locations",
         json={
@@ -86,31 +87,31 @@ async def test_create_keeps_explicit_subdivision_code(client: AsyncClient) -> No
             "lat": 52.52,
             "lng": 13.405,
             "country_code": "DE",
-            "subdivision_code": "DE-BE",
+            "subdivision_codes": ["DE-BE"],
         },
     )
 
     assert response.status_code == 201
     body = response.json()
     assert body["country_code"] == "DE"
-    assert body["subdivision_code"] == "DE-BE"
+    assert body["subdivision_codes"] == ["DE-BE"]
 
 
 async def test_create_with_only_a_country_code_skips_the_reverse_lookup(
     client: AsyncClient,
 ) -> None:
     """A supplied country code is authoritative, so no Nominatim call is made
-    and the subdivision stays empty rather than being filled from FR-IDF."""
+    and the subdivisions stay empty rather than being filled from FR-IDF."""
     response = await client.post(
         "/api/locations",
         json={"name": "Berlin", "lat": 52.52, "lng": 13.405, "country_code": "DE"},
     )
 
     assert response.status_code == 201
-    assert response.json()["subdivision_code"] is None
+    assert response.json()["subdivision_codes"] == []
 
 
-async def test_create_rejects_malformed_subdivision_code(client: AsyncClient) -> None:
+async def test_create_rejects_malformed_subdivision_codes(client: AsyncClient) -> None:
     response = await client.post(
         "/api/locations",
         json={
@@ -118,7 +119,7 @@ async def test_create_rejects_malformed_subdivision_code(client: AsyncClient) ->
             "lat": 0,
             "lng": 0,
             "country_code": "DE",
-            "subdivision_code": "berlin",
+            "subdivision_codes": ["DE-BE", "berlin"],
         },
     )
 
@@ -195,7 +196,7 @@ async def test_update_coordinates_rederives_country(client: AsyncClient) -> None
     body = response.json()
     assert body["lat"] == pytest.approx(48.85)
     assert body["country_code"] == "FR"  # re-derived from the stubbed reverse lookup
-    assert body["subdivision_code"] == "FR-IDF"
+    assert body["subdivision_codes"] == ["FR-IDF", "FR-75"]
 
 
 async def test_update_unknown_location_is_404(client: AsyncClient) -> None:

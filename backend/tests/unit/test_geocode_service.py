@@ -38,8 +38,8 @@ async def test_search_maps_and_ranks_results() -> None:
     assert results[0].lat == pytest.approx(52.5170365)
     assert results[0].lng == pytest.approx(13.3888599)
     assert results[0].country_code == "DE"  # uppercased from Nominatim's lowercase
-    assert results[0].subdivision_code == "DE-BE"
-    assert results[1].subdivision_code is None  # absent from that entry's address
+    assert results[0].subdivision_codes == ["DE-BE"]
+    assert results[1].subdivision_codes == []  # absent from that entry's address
     assert results[0].bounding_box is not None
     assert results[0].bounding_box.south == pytest.approx(52.3382448)
     assert results[0].bounding_box.east == pytest.approx(13.7611609)
@@ -67,10 +67,10 @@ async def test_reverse_returns_uppercased_country_code() -> None:
     assert result.country_code == "DE"
 
 
-async def test_reverse_picks_the_first_level_subdivision() -> None:
+async def test_reverse_keeps_every_subdivision_level_broadest_first() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         # Nominatim reports one code per admin level; lvl4 is the French region
-        # and lvl6 the departement. Natural Earth admin-1 models the former.
+        # and lvl6 the departement — the one Natural Earth admin-1 models.
         return httpx.Response(
             200,
             json={
@@ -84,7 +84,7 @@ async def test_reverse_picks_the_first_level_subdivision() -> None:
 
     result = await _service(handler).reverse(48.85, 2.35)
 
-    assert result.subdivision_code == "FR-IDF"
+    assert result.subdivision_codes == ["FR-IDF", "FR-75"]
 
 
 async def test_reverse_ignores_malformed_subdivision_codes() -> None:
@@ -96,16 +96,16 @@ async def test_reverse_ignores_malformed_subdivision_codes() -> None:
     result = await _service(handler).reverse(42.6, 21.0)
 
     assert result.country_code == "XK"
-    assert result.subdivision_code is None
+    assert result.subdivision_codes == []
 
 
-async def test_reverse_without_a_subdivision_yields_none() -> None:
+async def test_reverse_without_a_subdivision_yields_no_codes() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"address": {"country_code": "mc"}})
 
     result = await _service(handler).reverse(43.73, 7.42)
 
-    assert result.subdivision_code is None
+    assert result.subdivision_codes == []
 
 
 async def test_reverse_over_ocean_yields_none() -> None:
@@ -115,7 +115,7 @@ async def test_reverse_over_ocean_yields_none() -> None:
     result = await _service(handler).reverse(0.0, 0.0)
 
     assert result.country_code is None
-    assert result.subdivision_code is None
+    assert result.subdivision_codes == []
 
 
 async def test_upstream_error_status_raises_geocode_error() -> None:

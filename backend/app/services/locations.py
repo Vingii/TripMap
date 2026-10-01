@@ -45,7 +45,7 @@ def _base_select(user_id: uuid.UUID) -> Select[tuple[object, ...]]:
         Location.id,
         Location.name,
         Location.country_code,
-        Location.subdivision_code,
+        Location.subdivision_codes,
         Location.created_at,
         Location.updated_at,
         func.ST_Y(point).label("lat"),
@@ -61,7 +61,7 @@ def _to_read(row: Row[tuple[object, ...]]) -> LocationRead:
         lat=row.lat,
         lng=row.lng,
         country_code=row.country_code,
-        subdivision_code=row.subdivision_code,
+        subdivision_codes=row.subdivision_codes or [],
         visited=row.visited,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -77,22 +77,23 @@ async def _read(
 
 async def _derive_region(
     geocode: GeocodeService, lat: float, lng: float
-) -> tuple[str | None, str | None]:
-    """Reverse-geocode coordinates to ``(country_code, subdivision_code)``.
+) -> tuple[str | None, list[str] | None]:
+    """Reverse-geocode coordinates to ``(country_code, subdivision_codes)``.
 
-    Both are ``None`` when the geocoder is unreachable or the point has no
-    administrative context (e.g. open ocean).
+    Both are ``None`` when the geocoder is unreachable, leaving the row for the
+    backfill script; a point with no administrative context (e.g. open ocean)
+    resolves to no country and no subdivisions.
     """
     try:
         result = await geocode.reverse(lat, lng)
     except GeocodeError:
         return None, None
-    return result.country_code, result.subdivision_code
+    return result.country_code, result.subdivision_codes
 
 
 def _region_from(
     data: LocationCreate | LocationUpdate,
-) -> tuple[str, str | None] | None:
+) -> tuple[str, list[str] | None] | None:
     """The caller-supplied region, or ``None`` to reverse-geocode instead.
 
     A supplied ``country_code`` is taken as authoritative for both codes, so the
@@ -101,7 +102,7 @@ def _region_from(
     """
     if data.country_code is None:
         return None
-    return data.country_code, data.subdivision_code
+    return data.country_code, data.subdivision_codes
 
 
 async def list_locations(db: AsyncSession, user_id: uuid.UUID) -> list[LocationRead]:
@@ -118,14 +119,14 @@ async def get_location(
 async def create_location(
     db: AsyncSession, geocode: GeocodeService, user_id: uuid.UUID, data: LocationCreate
 ) -> LocationRead:
-    country_code, subdivision_code = _region_from(data) or await _derive_region(
+    country_code, subdivision_codes = _region_from(data) or await _derive_region(
         geocode, data.lat, data.lng
     )
     location = Location(
         name=data.name,
         coordinates=_point(data.lat, data.lng),
         country_code=country_code,
-        subdivision_code=subdivision_code,
+        subdivision_codes=subdivision_codes,
     )
     db.add(location)
     await db.commit()
@@ -151,12 +152,12 @@ async def update_location(
         # PostGIS accepts WKT on write; the column is modelled as ``str`` for reads.
         location.coordinates = _point(data.lat, data.lng)  # type: ignore[assignment]
         # Coordinates moved — re-derive the region unless the caller supplied one.
-        location.country_code, location.subdivision_code = _region_from(
+        location.country_code, location.subdivision_codes = _region_from(
             data
         ) or await _derive_region(geocode, data.lat, data.lng)
     elif data.country_code is not None:
         location.country_code = data.country_code
-        location.subdivision_code = data.subdivision_code
+        location.subdivision_codes = data.subdivision_codes
 
     await db.commit()
     return await _read(db, user_id, location_id)

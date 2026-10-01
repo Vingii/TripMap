@@ -11,6 +11,9 @@ export interface ClientConfig {
   // Mapy.com REST Tiles API key; empty or absent when unconfigured, in which
   // case the Mapy.com base layer is not offered.
   mapy_api_key?: string
+  // ISO 3166-1 alpha-2 codes the Zone view always draws split into
+  // subdivisions; absent or empty when none are configured.
+  zone_subdivision_countries?: string[]
 }
 
 export async function getClientConfig(): Promise<ClientConfig> {

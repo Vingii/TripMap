@@ -3,8 +3,9 @@ import { defineStore } from 'pinia'
 import { getClientConfig, type ClientConfig } from '../api/config'
 
 // Holds the backend's runtime configuration (`GET /api/config`) for components
-// that need it after startup — currently the flat map, which builds Mapy.com
-// tile URLs from a key that only exists in the backend's environment.
+// that need it after startup — the flat map, which builds Mapy.com tile URLs
+// from a key that only exists in the backend's environment, and the Zone view,
+// which reads the instance's always-expanded countries.
 // `load()` is idempotent: concurrent callers share one in-flight request and
 // later callers reuse the cached result.
 export const useConfigStore = defineStore('config', () => {
@@ -14,6 +15,10 @@ export const useConfigStore = defineStore('config', () => {
   // Empty when the backend has no MAPY_API_KEY, which is the signal to hide
   // the Mapy.com base layer altogether.
   const mapyApiKey = computed<string>(() => config.value?.mapy_api_key ?? '')
+
+  const zoneSubdivisionCountries = computed<string[]>(
+    () => config.value?.zone_subdivision_countries ?? [],
+  )
 
   async function load(): Promise<void> {
     if (config.value) return
@@ -29,5 +34,5 @@ export const useConfigStore = defineStore('config', () => {
     await pending
   }
 
-  return { config, mapyApiKey, load }
+  return { config, mapyApiKey, zoneSubdivisionCountries, load }
 })

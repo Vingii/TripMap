@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import {
+  computed,
+  onMounted,
+  ref,
+  shallowRef,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ZoneCanvas from '../components/ZoneCanvas.vue'
 import ZoneGlobeCanvas from '../components/ZoneGlobeCanvas.vue'
+import ZonePanel from '../components/ZonePanel.vue'
+import { useConfigStore } from '../stores/config'
 import { useLocationsStore } from '../stores/locations'
 import { isMapFilter, useMapFilterStore } from '../stores/mapFilter'
 import { useProjectionStore } from '../stores/projection'
 import {
-  countryZones,
-  subdivisionZones,
   useZonesStore,
+  zoneFeatures,
   type ZoneFeatureCollection,
   type ZoneInfo,
 } from '../stores/zones'
@@ -17,6 +25,7 @@ import type { Location } from '../api/locations'
 
 const store = useLocationsStore()
 const zones = useZonesStore()
+const config = useConfigStore()
 const mapFilter = useMapFilterStore()
 const projection = useProjectionStore()
 const route = useRoute()
@@ -24,10 +33,18 @@ const router = useRouter()
 
 const EMPTY: ZoneFeatureCollection = { type: 'FeatureCollection', features: [] }
 
-/** The country we are drilled into, taken from the URL so Back just works. */
-const selectedCountry = computed<string | null>(() => {
-  const value = route.query.country
-  return typeof value === 'string' && value ? value : null
+// Per-country clicks, layered over the instance's always-expanded countries:
+// true splits a country into subdivisions, false merges it back — so a
+// configured country can be collapsed too. Session-only by design.
+const toggled = ref(new Map<string, boolean>())
+
+const expanded = computed<ReadonlySet<string>>(() => {
+  const result = new Set(config.zoneSubdivisionCountries)
+  for (const [country, split] of toggled.value) {
+    if (split) result.add(country)
+    else result.delete(country)
+  }
+  return result
 })
 
 // Same per-user "visited" scoping as the pin view.
@@ -37,43 +54,50 @@ const displayLocations = computed<Location[]>(() =>
     : store.locations,
 )
 
-const features = computed<ZoneFeatureCollection>(() => {
-  const country = selectedCountry.value
-  if (country) {
-    return zones.subdivisions
-      ? subdivisionZones(zones.subdivisions, displayLocations.value, country)
-      : EMPTY
-  }
-  return zones.countries
-    ? countryZones(zones.countries, displayLocations.value)
-    : EMPTY
-})
+const features = computed<ZoneFeatureCollection>(() =>
+  zones.countries
+    ? zoneFeatures(
+        zones.countries,
+        zones.subdivisions,
+        displayLocations.value,
+        expanded.value,
+      )
+    : EMPTY,
+)
 
-const selectedCountryName = computed<string | null>(() => {
-  const country = selectedCountry.value
-  if (!country || !zones.countries) return null
-  const match = zones.countries.features.find(
-    (f) => f.properties.country_code === country,
-  )
-  return match?.properties.name ?? country
-})
+const hovered = shallowRef<ZoneInfo | null>(null)
+
+// The hover panel lives in a corner, out of the way of the pointer. Should the
+// pointer stray into that corner it hops to the opposite one, so it never hides
+// the zone being described.
+type Corner = 'bottom-right' | 'top-left'
+const corner = ref<Corner>('bottom-right')
+const panelEl = useTemplateRef<HTMLDivElement>('panel')
+const PANEL_MARGIN = 16
+
+function onPointerMove(event: PointerEvent): void {
+  const rect = panelEl.value?.getBoundingClientRect()
+  if (!rect) return
+  const near =
+    event.clientX >= rect.left - PANEL_MARGIN &&
+    event.clientX <= rect.right + PANEL_MARGIN &&
+    event.clientY >= rect.top - PANEL_MARGIN &&
+    event.clientY <= rect.bottom + PANEL_MARGIN
+  if (near) {
+    corner.value = corner.value === 'bottom-right' ? 'top-left' : 'bottom-right'
+  }
+}
 
 onMounted(() => {
   void store.fetchAll()
-  void zones.load('country')
+  void config.load().catch(() => undefined)
+  // Subdivisions are needed up front: they decide which countries can be
+  // clicked at all, and configured countries start out expanded.
+  void zones.load('country').then(() => zones.load('subdivision'))
   if (isMapFilter(route.query.filter)) {
     mapFilter.set(route.query.filter)
   }
 })
-
-// The 1.7 MB subdivision layer is only worth fetching once a country is opened.
-watch(
-  selectedCountry,
-  (country) => {
-    if (country) void zones.load('subdivision')
-  },
-  { immediate: true },
-)
 
 // Keep the `filter` query param in sync for shareability; drop it when "all".
 watch(
@@ -86,32 +110,28 @@ watch(
 )
 
 function onZoneClick(zone: ZoneInfo): void {
-  // Only countries drill down, and only when there is something to show.
-  if (selectedCountry.value || zone.count === 0) return
-  void router.push({ query: { ...route.query, country: zone.key } })
-}
-
-function toWorld(): void {
-  if (!selectedCountry.value) return
-  void router.push({ query: { ...route.query, country: undefined } })
+  if (!zone.clickable || !zone.country) return
+  const next = new Map(toggled.value)
+  next.set(zone.country, zone.level === 'country')
+  toggled.value = next
 }
 </script>
 
 <template>
-  <div class="relative h-full w-full">
+  <div class="relative h-full w-full" @pointermove="onPointerMove">
     <zone-canvas
       v-if="projection.projection === 'flat'"
       :zones="features"
-      :focus-key="selectedCountry"
+      :borders="zones.countries"
       @zone-click="onZoneClick"
-      @background="toWorld"
+      @zone-hover="hovered = $event"
     />
     <zone-globe-canvas
       v-else
       :zones="features"
-      :focus-key="selectedCountry"
+      :borders="zones.countries"
       @zone-click="onZoneClick"
-      @background="toWorld"
+      @zone-hover="hovered = $event"
     />
 
     <div
@@ -172,14 +192,16 @@ function toWorld(): void {
       </button>
     </div>
 
-    <button
-      v-if="selectedCountry"
-      type="button"
-      class="absolute top-4 left-4 z-[1000] rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-      @click="toWorld"
+    <!-- Purely informational: never intercepts the pointer, so dragging and
+         rotating work the same wherever the cursor is. -->
+    <div
+      v-if="hovered"
+      ref="panel"
+      class="pointer-events-none absolute z-[1000]"
+      :class="corner === 'bottom-right' ? 'right-4 bottom-4' : 'top-4 left-4'"
     >
-      ← {{ selectedCountryName }}
-    </button>
+      <zone-panel :zone="hovered" />
+    </div>
 
     <p
       v-if="zones.loading"

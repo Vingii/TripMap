@@ -14,7 +14,7 @@ SubdivisionCode = Annotated[
     Field(
         pattern=r"^[A-Z]{2}-[A-Z0-9]{1,3}$",
         max_length=6,
-        description="ISO 3166-2 first-level subdivision, e.g. US-CA.",
+        description="ISO 3166-2 subdivision code, e.g. US-CA.",
     ),
 ]
 
@@ -24,8 +24,8 @@ class LocationCreate(BaseModel):
 
     ``country_code`` is optional: the name-search flow already knows it from the
     geocoder, while the map-click and manual-coordinate flows omit it and let the
-    server reverse-geocode the coordinates to fill it in. ``subdivision_code`` is
-    only read when ``country_code`` is supplied — otherwise both come from the
+    server reverse-geocode the coordinates to fill it in. ``subdivision_codes``
+    is only read when ``country_code`` is supplied — otherwise both come from the
     same reverse-geocode call.
     """
 
@@ -33,14 +33,14 @@ class LocationCreate(BaseModel):
     lat: Latitude
     lng: Longitude
     country_code: CountryCode | None = None
-    subdivision_code: SubdivisionCode | None = None
+    subdivision_codes: list[SubdivisionCode] | None = None
 
 
 class LocationUpdate(BaseModel):
     """Partial update of a location's name and/or coordinates.
 
     Coordinates are a unit: supply both ``lat`` and ``lng`` or neither. Changing
-    them re-derives ``country_code`` and ``subdivision_code`` via reverse
+    them re-derives ``country_code`` and ``subdivision_codes`` via reverse
     geocoding unless a ``country_code`` is given.
     """
 
@@ -48,7 +48,7 @@ class LocationUpdate(BaseModel):
     lat: Latitude | None = None
     lng: Longitude | None = None
     country_code: CountryCode | None = None
-    subdivision_code: SubdivisionCode | None = None
+    subdivision_codes: list[SubdivisionCode] | None = None
 
     @model_validator(mode="after")
     def _coordinates_are_paired(self) -> Self:
@@ -75,7 +75,9 @@ class LocationRead(BaseModel):
     lat: float
     lng: float
     country_code: str | None
-    subdivision_code: str | None
+    subdivision_codes: list[str] = Field(
+        description="Every ISO 3166-2 code the point falls in, broadest level first."
+    )
     visited: bool = False
     created_at: datetime
     updated_at: datetime

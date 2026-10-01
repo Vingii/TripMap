@@ -24,4 +24,5 @@ async def get_client_config(
         oidc_client_id=settings.oidc_audience,
         dev_auth=settings.dev_auth,
         mapy_api_key=settings.mapy_api_key,
+        zone_subdivision_countries=settings.zone_subdivision_countries,
     )

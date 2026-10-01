@@ -3,8 +3,10 @@ import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Feature } from 'geojson'
+import type { ZoneCollection } from '../assets/geo'
+import { useThemeStore } from '../stores/theme'
 import {
-  zoneTooltip,
+  zonePalette,
   type ZoneFeature,
   type ZoneFeatureCollection,
   type ZoneInfo,
@@ -12,108 +14,131 @@ import {
 
 const props = defineProps<{
   zones: ZoneFeatureCollection
-  /** Non-null while drilled into one country; frames that country's extent. */
-  focusKey: string | null
+  /** Country polygons, stroked on top so country borders stay prominent. */
+  borders: ZoneCollection | null
 }>()
 const emit = defineEmits<{
   zoneClick: [zone: ZoneInfo]
-  background: []
+  zoneHover: [zone: ZoneInfo | null]
 }>()
 
-const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
-
 // The zone view opens on the whole world rather than restoring the pin map's
-// saved position, and deliberately does not write back to the map store —
-// drilling into a country should not move the pin map next time it opens.
+// saved position, and deliberately does not write back to the map store.
 const WORLD_CENTER: L.LatLngTuple = [20, 0]
 const WORLD_ZOOM = 2
 
-// Same indigo accent as the pins for zones holding locations; empty zones stay
-// a muted grey that reads as "nothing here" on both light and dark tiles.
-const FILLED = '#6366f1'
-const EMPTY = '#64748b'
-
+const theme = useThemeStore()
 const containerEl = useTemplateRef<HTMLDivElement>('container')
 
 let map: L.Map | null = null
 let zoneLayer: L.GeoJSON | null = null
+let borderLayer: L.GeoJSON | null = null
+let hovered: L.Path | null = null
 let resizeObserver: ResizeObserver | null = null
 
 function styleFor(feature?: Feature): L.PathOptions {
-  const count = (feature as ZoneFeature | undefined)?.properties.count ?? 0
+  const zone = (feature as ZoneFeature | undefined)?.properties
+  const palette = zonePalette(theme.isDark)
+  const filled = (zone?.count ?? 0) > 0
   return {
-    fillColor: count > 0 ? FILLED : EMPTY,
-    fillOpacity: count > 0 ? 0.6 : 0.15,
-    color: '#ffffff',
-    weight: 1,
+    fillColor: filled ? palette.filled : palette.empty,
+    fillOpacity: 1,
+    color: palette.subdivisionLine,
+    weight: zone?.level === 'subdivision' ? 0.5 : 0,
+    // Leaflet gives every interactive path a pointer cursor; inherit the map's
+    // grab cursor instead where a click would do nothing.
+    className: zone?.clickable ? '' : 'cursor-[inherit]!',
   }
+}
+
+function borderStyle(): L.PathOptions {
+  return {
+    color: zonePalette(theme.isDark).countryLine,
+    weight: 0.8,
+    fill: false,
+    interactive: false,
+  }
+}
+
+function setHovered(layer: L.Path | null, zone: ZoneInfo | null): void {
+  if (hovered && hovered !== layer) zoneLayer?.resetStyle(hovered)
+  hovered = layer
+  layer?.setStyle({ fillColor: zonePalette(theme.isDark).hover })
+  emit('zoneHover', zone)
 }
 
 function renderZones(): void {
   if (!map) return
-  if (zoneLayer) {
-    map.removeLayer(zoneLayer)
-    zoneLayer = null
-  }
+  zoneLayer?.remove()
+  // The layer under the pointer is about to be replaced; clear the panel
+  // rather than leave it describing a polygon that no longer exists.
+  if (hovered) setHovered(null, null)
 
   zoneLayer = L.geoJSON(props.zones, {
     style: styleFor,
     onEachFeature: (feature, layer) => {
       const zone = (feature as ZoneFeature).properties
-      // `sticky` keeps the tooltip under the cursor rather than pinning it to
-      // the polygon's centroid, which for a large country is far off screen.
-      layer.bindTooltip(zoneTooltip(zone), { sticky: true })
-      layer.on('click', (event: L.LeafletMouseEvent) => {
-        // Otherwise the map's own click handler also fires and immediately
-        // navigates back out of the country just selected.
-        L.DomEvent.stopPropagation(event)
-        emit('zoneClick', zone)
+      const path = layer as L.Path
+      path.on('mouseover', () => setHovered(path, zone))
+      path.on('mouseout', () => {
+        if (hovered === path) setHovered(null, null)
+      })
+      path.on('click', () => {
+        if (zone.clickable) emit('zoneClick', zone)
       })
     },
   }).addTo(map)
 
-  applyFocus()
+  // Re-adding keeps the borders above the freshly drawn fills.
+  borderLayer?.bringToFront()
 }
 
-/** Frames the drilled-into country, or returns to the world view. */
-function applyFocus(): void {
+function renderBorders(): void {
   if (!map) return
-  if (props.focusKey && zoneLayer) {
-    const bounds = zoneLayer.getBounds()
-    if (bounds.isValid()) map.flyToBounds(bounds)
-  } else {
-    map.flyTo(WORLD_CENTER, WORLD_ZOOM)
-  }
+  borderLayer?.remove()
+  borderLayer = props.borders
+    ? L.geoJSON(props.borders, { style: borderStyle }).addTo(map)
+    : null
+}
+
+function applyTheme(): void {
+  if (!map) return
+  map.getContainer().style.background = zonePalette(theme.isDark).water
+  zoneLayer?.setStyle(styleFor)
+  borderLayer?.setStyle(borderStyle)
+  hovered?.setStyle({ fillColor: zonePalette(theme.isDark).hover })
 }
 
 onMounted(() => {
   if (!containerEl.value) return
 
+  // No base tiles: the polygons are the whole picture, so there is no
+  // third-party data to attribute either.
   map = L.map(containerEl.value, {
     center: WORLD_CENTER,
     zoom: WORLD_ZOOM,
     zoomControl: true,
+    attributionControl: false,
   })
   map.zoomControl.setPosition('topright')
-  map.attributionControl.setPrefix(false)
-  L.tileLayer(OSM_TILE_URL, {
-    maxZoom: 19,
-    attribution: OSM_ATTRIBUTION,
-  }).addTo(map)
 
+  renderBorders()
   renderZones()
-
-  // Anything that is not a polygon — ocean, or the gaps between zones.
-  map.on('click', () => emit('background'))
+  applyTheme()
 
   resizeObserver = new ResizeObserver(() => map?.invalidateSize())
   resizeObserver.observe(containerEl.value)
 })
 
 watch(() => props.zones, renderZones)
-watch(() => props.focusKey, applyFocus)
+watch(
+  () => props.borders,
+  () => {
+    renderBorders()
+    applyTheme()
+  },
+)
+watch(() => theme.isDark, applyTheme)
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
@@ -121,6 +146,8 @@ onBeforeUnmount(() => {
   map?.remove()
   map = null
   zoneLayer = null
+  borderLayer = null
+  hovered = null
 })
 </script>
 

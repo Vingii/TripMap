@@ -1,16 +1,17 @@
-"""Fill in ``subdivision_code`` for locations created before the column existed.
+"""Fill in ``subdivision_codes`` for locations that have never been resolved.
 
-The value comes from Nominatim, so a migration cannot produce it. Run this once
-after upgrading::
+That covers rows created before the column existed (the migration that added it
+resets them, since it cannot call Nominatim) and rows whose reverse geocode
+failed at create time. Run this once after upgrading::
 
     make backfill-subdivisions
 
 Every candidate costs one reverse-geocode call, serialised by the geocoder's
 rate limiter (~1 req/s against the public Nominatim instance), so a large
 database takes a while. The command is safe to re-run and to interrupt: it only
-considers rows that are still missing a code, and commits as it goes. Locations
-that genuinely have no subdivision — open ocean, city-states — stay ``NULL`` and
-are retried on every run.
+considers rows that are still unresolved, and commits as it goes. Locations that
+genuinely have no subdivision — open ocean, city-states — are stored with an
+empty list, so they are not retried.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from app.services.geocode import GeocodeError, GeocodeService, create_geocode_se
 
 
 async def backfill(db: AsyncSession, geocode: GeocodeService) -> tuple[int, int]:
-    """Resolve and store the region of every location missing a subdivision.
+    """Resolve and store the region of every unresolved location.
 
     Returns ``(updated, examined)``.
     """
@@ -41,12 +42,12 @@ async def backfill(db: AsyncSession, geocode: GeocodeService) -> tuple[int, int]
                 func.ST_Y(point).label("lat"),
                 func.ST_X(point).label("lng"),
             )
-            .where(Location.subdivision_code.is_(None))
+            .where(Location.subdivision_codes.is_(None))
             .order_by(Location.created_at)
         )
     ).all()
 
-    print(f"{len(rows)} location(s) without a subdivision code")
+    print(f"{len(rows)} location(s) without resolved subdivisions")
     updated = 0
     for row in rows:
         try:
@@ -55,19 +56,15 @@ async def backfill(db: AsyncSession, geocode: GeocodeService) -> tuple[int, int]
             print(f"  {row.name}: geocoding failed ({exc})")
             continue
 
-        if result.subdivision_code is None:
-            print(f"  {row.name}: no subdivision reported")
-            continue
-
         location = await db.get(Location, row.id)
         if location is None:  # deleted while we were geocoding
             continue
-        location.subdivision_code = result.subdivision_code
+        location.subdivision_codes = result.subdivision_codes
         # Older rows may predate country_code too; fill it from the same call.
         location.country_code = location.country_code or result.country_code
         await db.commit()
         updated += 1
-        print(f"  {row.name}: {result.subdivision_code}")
+        print(f"  {row.name}: {', '.join(result.subdivision_codes) or 'no subdivision'}")
 
     return updated, len(rows)
 

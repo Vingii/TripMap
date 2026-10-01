@@ -56,7 +56,7 @@ async def test_search_returns_ranked_matches() -> None:
             "lat": 52.52,
             "lng": 13.405,
             "country_code": "DE",
-            "subdivision_code": "DE-BE",
+            "subdivision_codes": ["DE-BE"],
             "bounding_box": {
                 "south": 52.33,
                 "north": 52.67,
@@ -85,7 +85,7 @@ async def test_reverse_returns_region_codes() -> None:
     response = await _get("/api/geocode/reverse?lat=52.52&lng=13.405")
 
     assert response.status_code == 200
-    assert response.json() == {"country_code": "DE", "subdivision_code": "DE-BE"}
+    assert response.json() == {"country_code": "DE", "subdivision_codes": ["DE-BE"]}
 
 
 async def test_reverse_omits_a_subdivision_the_geocoder_does_not_report() -> None:
@@ -94,7 +94,7 @@ async def test_reverse_omits_a_subdivision_the_geocoder_does_not_report() -> Non
     response = await _get("/api/geocode/reverse?lat=43.73&lng=7.42")
 
     assert response.status_code == 200
-    assert response.json() == {"country_code": "MC", "subdivision_code": None}
+    assert response.json() == {"country_code": "MC", "subdivision_codes": []}
 
 
 async def test_reverse_rejects_out_of_range_coordinates() -> None:
