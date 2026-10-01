@@ -67,7 +67,7 @@ class GeocodeService:
         return [_to_result(item) for item in payload if _is_locatable(item)]
 
     async def reverse(self, lat: float, lng: float) -> ReverseGeocodeResult:
-        """Resolve the country and first-level subdivision for a coordinate."""
+        """Resolve the country and subdivisions for a coordinate."""
         payload = await self._get(
             "/reverse",
             {"lat": lat, "lon": lng, "format": "jsonv2", "addressdetails": 1},
@@ -76,7 +76,7 @@ class GeocodeService:
             raise GeocodeError("Unexpected response from geocoding provider")
         return ReverseGeocodeResult(
             country_code=_country_code(payload),
-            subdivision_code=_subdivision_code(payload),
+            subdivision_codes=_subdivision_codes(payload),
         )
 
     async def _get(self, path: str, params: dict[str, str | int | float]) -> object:
@@ -125,15 +125,16 @@ _SUBDIVISION_KEY = re.compile(r"^ISO3166-2-lvl(\d+)$")
 _SUBDIVISION_CODE = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,3}$")
 
 
-def _subdivision_code(item: dict[str, object]) -> str | None:
-    """Pick the broadest ISO 3166-2 code Nominatim reports for a place.
+def _subdivision_codes(item: dict[str, object]) -> list[str]:
+    """Every ISO 3166-2 code Nominatim reports for a place, broadest level first.
 
-    The bundled Natural Earth admin-1 layer models *first-level* subdivisions,
-    which is the lowest administrative level present in the response.
+    All levels are kept rather than just the broadest: the bundled Natural Earth
+    admin-1 layer models French departments and Italian provinces (lvl6) but
+    German states (lvl4), so only the client can tell which one it can join.
     """
     address = item.get("address")
     if not isinstance(address, dict):
-        return None
+        return []
 
     candidates: list[tuple[int, str]] = []
     for key, value in address.items():
@@ -144,7 +145,7 @@ def _subdivision_code(item: dict[str, object]) -> str | None:
         if _SUBDIVISION_CODE.match(code):
             candidates.append((int(level.group(1)), code))
 
-    return min(candidates)[1] if candidates else None
+    return list(dict.fromkeys(code for _, code in sorted(candidates)))
 
 
 def _to_result(item: dict[str, object]) -> GeocodeResult:
@@ -153,7 +154,7 @@ def _to_result(item: dict[str, object]) -> GeocodeResult:
         lat=float(item["lat"]),  # type: ignore[arg-type]  # Nominatim sends numeric strings
         lng=float(item["lon"]),  # type: ignore[arg-type]
         country_code=_country_code(item),
-        subdivision_code=_subdivision_code(item),
+        subdivision_codes=_subdivision_codes(item),
         bounding_box=_bounding_box(item),
     )
 

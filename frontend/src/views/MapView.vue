@@ -54,7 +54,7 @@ interface FormState {
   lng: number | null
   // Carried from a name-search match so the backend can skip a reverse lookup.
   countryCode: string | null
-  subdivisionCode: string | null
+  subdivisionCodes: string[] | null
 }
 
 const form = reactive<FormState>({
@@ -65,7 +65,7 @@ const form = reactive<FormState>({
   lat: null,
   lng: null,
   countryCode: null,
-  subdivisionCode: null,
+  subdivisionCodes: null,
 })
 
 onMounted(() => {
@@ -97,7 +97,7 @@ function openCreate(
   lat: number | null,
   lng: number | null,
   countryCode: string | null = null,
-  subdivisionCode: string | null = null,
+  subdivisionCodes: string[] | null = null,
 ): void {
   selected.value = null
   Object.assign(form, {
@@ -108,7 +108,7 @@ function openCreate(
     lat,
     lng,
     countryCode,
-    subdivisionCode,
+    subdivisionCodes,
   })
 }
 
@@ -127,7 +127,7 @@ function onAddManual(): void {
       place.lat,
       place.lng,
       place.country_code,
-      place.subdivision_code,
+      place.subdivision_codes,
     )
   } else {
     openCreate('', null, null)
@@ -156,7 +156,7 @@ function onEdit(): void {
     lat: location.lat,
     lng: location.lng,
     countryCode: null,
-    subdivisionCode: null,
+    subdivisionCodes: null,
   })
   selected.value = null
 }
@@ -179,7 +179,7 @@ async function onSubmit(payload: {
         ...(unchanged && form.countryCode
           ? {
               country_code: form.countryCode,
-              subdivision_code: form.subdivisionCode,
+              subdivision_codes: form.subdivisionCodes,
             }
           : {}),
       })

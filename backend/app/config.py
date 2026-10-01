@@ -1,7 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -40,6 +42,28 @@ class Settings(BaseSettings):
     # ``GET /api/config`` because tiles are requested directly by the client —
     # it is a public, origin-restricted key, not a secret.
     mapy_api_key: str = ""
+
+    # Countries (ISO 3166-1 alpha-2) the Zone view always draws at subdivision
+    # level, as a comma-separated list, e.g. "CZ,DE". Instance-wide and read at
+    # runtime, so a deployment can change it without rebuilding the image.
+    zone_subdivision_countries: Annotated[list[str], NoDecode] = []
+
+    @field_validator("zone_subdivision_countries", mode="before")
+    @classmethod
+    def _parse_country_list(cls, value: object) -> object:
+        """Split the comma-separated env value into uppercased codes."""
+        if not isinstance(value, str):
+            return value
+        codes = (part.strip().upper() for part in value.split(","))
+        return list(dict.fromkeys(code for code in codes if code))
+
+    @field_validator("zone_subdivision_countries")
+    @classmethod
+    def _check_country_codes(cls, value: list[str]) -> list[str]:
+        invalid = [code for code in value if len(code) != 2 or not code.isalpha()]
+        if invalid:
+            raise ValueError(f"not ISO 3166-1 alpha-2 codes: {', '.join(invalid)}")
+        return value
 
 
 @lru_cache

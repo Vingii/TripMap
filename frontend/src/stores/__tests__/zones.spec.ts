@@ -4,12 +4,11 @@ import type { Geometry } from 'geojson'
 import type { ZoneCollection, ZoneProperties } from '../../assets/geo'
 import type { Location } from '../../api/locations'
 import {
-  boundsOf,
-  countryZones,
-  subdivisionZones,
   useZonesStore,
-  zoneTooltip,
+  zoneCountLabel,
+  zoneFeatures,
   type ZoneFeatureCollection,
+  type ZoneInfo,
 } from '../zones'
 
 vi.mock('../../assets/geo', () => ({
@@ -56,7 +55,7 @@ function makeLocation(overrides: Partial<Location> = {}): Location {
     lat: 0,
     lng: 0,
     country_code: null,
-    subdivision_code: null,
+    subdivision_codes: [],
     visited: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
@@ -64,162 +63,174 @@ function makeLocation(overrides: Partial<Location> = {}): Location {
   }
 }
 
-describe('countryZones', () => {
+function keyed(
+  result: ZoneFeatureCollection,
+): Record<string, Omit<ZoneInfo, 'key' | 'name'>> {
+  return Object.fromEntries(
+    result.features.map(
+      ({ properties: { key, count, level, country, clickable } }) => [
+        key,
+        { count, level, country, clickable },
+      ],
+    ),
+  )
+}
+
+describe('zoneFeatures', () => {
   const countries = collection([
-    { properties: { name: 'France', country_code: 'FR' } },
     { properties: { name: 'Germany', country_code: 'DE' } },
+    { properties: { name: 'France', country_code: 'FR' } },
+    { properties: { name: 'Monaco', country_code: 'MC' } },
     { properties: { name: 'Siachen Glacier' } },
   ])
-
-  it('counts locations per country and leaves the rest at zero', () => {
-    const result = countryZones(countries, [
-      makeLocation({ country_code: 'FR' }),
-      makeLocation({ country_code: 'FR' }),
-      makeLocation({ country_code: 'DE' }),
-    ])
-
-    expect(result.features.map((f) => f.properties)).toEqual([
-      { key: 'FR', name: 'France', count: 2 },
-      { key: 'DE', name: 'Germany', count: 1 },
-    ])
-  })
-
-  it('drops features with no ISO country code', () => {
-    const result = countryZones(countries, [])
-
-    expect(result.features.map((f) => f.properties.name)).not.toContain(
-      'Siachen Glacier',
-    )
-  })
-
-  it('ignores locations whose country was never resolved', () => {
-    const result = countryZones(countries, [
-      makeLocation({ country_code: null }),
-    ])
-
-    expect(result.features.every((f) => f.properties.count === 0)).toBe(true)
-  })
-
-  it('keeps the source geometry by reference', () => {
-    const result = countryZones(countries, [])
-
-    expect(result.features[0].geometry).toBe(countries.features[0].geometry)
-  })
-})
-
-describe('subdivisionZones', () => {
   const subdivisions = collection([
     { properties: { name: 'Bavaria', country_code: 'DE', code: 'DE-BY' } },
     { properties: { name: 'Berlin', country_code: 'DE', code: 'DE-BE' } },
-    { properties: { name: 'Unnamed area', country_code: 'DE' } },
-    { properties: { name: 'Occitanie', country_code: 'FR', code: 'FR-OCC' } },
+    { properties: { name: 'Nord', country_code: 'FR', code: 'FR-59' } },
+    { properties: { name: 'Paris', country_code: 'FR', code: 'FR-75' } },
+    { properties: { name: 'Lakes', country_code: 'FR' } },
+    { properties: { name: 'Monaco', country_code: 'MC', code: 'MC-MO' } },
   ])
+  const none = new Set<string>()
 
-  it('keeps only the selected country and counts by subdivision', () => {
-    const result = subdivisionZones(
+  it('counts locations per country and leaves the rest at zero', () => {
+    const result = zoneFeatures(
+      countries,
       subdivisions,
       [
-        makeLocation({ country_code: 'DE', subdivision_code: 'DE-BY' }),
-        makeLocation({ country_code: 'DE', subdivision_code: 'DE-BY' }),
-        makeLocation({ country_code: 'FR', subdivision_code: 'FR-OCC' }),
+        makeLocation({ country_code: 'DE' }),
+        makeLocation({ country_code: 'DE' }),
+        makeLocation({ country_code: 'FR' }),
+        makeLocation({ country_code: null }),
       ],
-      'DE',
+      none,
     )
 
-    expect(result.features.map((f) => f.properties)).toEqual([
-      { key: 'DE-BY', name: 'Bavaria', count: 2 },
-      { key: 'DE-BE', name: 'Berlin', count: 0 },
-      { key: 'DE:Unnamed area', name: 'Unnamed area', count: 0 },
+    expect(keyed(result)).toEqual({
+      DE: { count: 2, level: 'country', country: 'DE', clickable: true },
+      FR: { count: 1, level: 'country', country: 'FR', clickable: true },
+      MC: { count: 0, level: 'country', country: 'MC', clickable: false },
+      'Siachen Glacier': {
+        count: 0,
+        level: 'country',
+        country: null,
+        clickable: false,
+      },
+    })
+  })
+
+  it('only marks countries clickable once their subdivisions are known', () => {
+    const result = zoneFeatures(countries, null, [], new Set(['DE']))
+
+    expect(result.features.map((f) => f.properties.clickable)).toEqual([
+      false,
+      false,
+      false,
+      false,
     ])
+    expect(result.features[0]?.properties.level).toBe('country')
+  })
+
+  it('replaces only expanded countries with their subdivisions', () => {
+    const result = zoneFeatures(countries, subdivisions, [], new Set(['FR']))
+
+    expect(result.features.map((f) => f.properties.key)).toEqual([
+      'DE',
+      'FR-59',
+      'FR-75',
+      'FR:Lakes',
+      'MC',
+      'Siachen Glacier',
+    ])
+    expect(result.features[1]?.properties).toMatchObject({
+      name: 'Nord',
+      level: 'subdivision',
+      country: 'FR',
+      clickable: true,
+    })
+  })
+
+  it('keeps a country with a single subdivision whole', () => {
+    const result = zoneFeatures(countries, subdivisions, [], new Set(['MC']))
+
+    expect(keyed(result)['MC']?.level).toBe('country')
+  })
+
+  it("credits a subdivision matched by any of a location's codes", () => {
+    const result = zoneFeatures(
+      countries,
+      subdivisions,
+      [
+        // Nominatim reports the region first; the layer models departments.
+        makeLocation({
+          country_code: 'FR',
+          subdivision_codes: ['FR-HDF', 'FR-59'],
+        }),
+        makeLocation({
+          country_code: 'FR',
+          subdivision_codes: ['FR-IDF', 'FR-75'],
+        }),
+        makeLocation({ country_code: 'FR', subdivision_codes: ['FR-75'] }),
+        makeLocation({ country_code: 'DE', subdivision_codes: ['DE-BY'] }),
+      ],
+      new Set(['DE', 'FR']),
+    )
+
+    const counts = Object.fromEntries(
+      result.features.map((f) => [f.properties.key, f.properties.count]),
+    )
+    expect(counts).toEqual({
+      'DE-BY': 1,
+      'DE-BE': 0,
+      'FR-59': 1,
+      'FR-75': 2,
+      'FR:Lakes': 0,
+      MC: 0,
+      'Siachen Glacier': 0,
+    })
   })
 
   it('does not credit a subdivision code from another country', () => {
-    const result = subdivisionZones(
+    const result = zoneFeatures(
+      countries,
       subdivisions,
-      [makeLocation({ country_code: 'FR', subdivision_code: 'DE-BY' })],
-      'DE',
+      [makeLocation({ country_code: 'FR', subdivision_codes: ['DE-BY'] })],
+      new Set(['DE']),
     )
 
-    expect(result.features.every((f) => f.properties.count === 0)).toBe(true)
+    expect(keyed(result)['DE-BY']?.count).toBe(0)
   })
 
-  it('leaves locations with no subdivision uncounted', () => {
-    const result = subdivisionZones(
-      subdivisions,
-      [makeLocation({ country_code: 'DE', subdivision_code: null })],
-      'DE',
-    )
+  it('keeps the source geometry by reference', () => {
+    const result = zoneFeatures(countries, subdivisions, [], new Set(['DE']))
 
-    expect(result.features.every((f) => f.properties.count === 0)).toBe(true)
+    expect(result.features[0]?.geometry).toBe(
+      subdivisions.features[0]?.geometry,
+    )
+    expect(result.features[2]?.geometry).toBe(countries.features[1]?.geometry)
   })
 })
 
-describe('zoneTooltip', () => {
-  it('names the zone and its location count', () => {
-    expect(zoneTooltip({ key: 'FR', name: 'France', count: 3 })).toBe(
-      'France — 3 locations',
-    )
+describe('zoneCountLabel', () => {
+  const zone: ZoneInfo = {
+    key: 'DE',
+    name: 'Germany',
+    count: 0,
+    level: 'country',
+    country: 'DE',
+    clickable: true,
+  }
+
+  it("counts the zone's locations", () => {
+    expect(zoneCountLabel({ ...zone, count: 3 })).toBe('3 locations')
   })
 
   it('uses the singular for exactly one location', () => {
-    expect(zoneTooltip({ key: 'FR', name: 'France', count: 1 })).toBe(
-      'France — 1 location',
-    )
+    expect(zoneCountLabel({ ...zone, count: 1 })).toBe('1 location')
   })
 
   it('says so when the zone is empty', () => {
-    expect(zoneTooltip({ key: 'FR', name: 'France', count: 0 })).toBe(
-      'France — no locations here',
-    )
-  })
-})
-
-describe('boundsOf', () => {
-  function zoneCollection(geometry: Geometry): ZoneFeatureCollection {
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          geometry,
-          properties: { key: 'X', name: 'X', count: 0 },
-        },
-      ],
-    }
-  }
-
-  it('spans every ring of a polygon', () => {
-    expect(boundsOf(zoneCollection(square(2, 3)))).toEqual([2, 3, 3, 4])
-  })
-
-  it('spans every part of a multipolygon', () => {
-    const multi: Geometry = {
-      type: 'MultiPolygon',
-      coordinates: [
-        [
-          [
-            [0, 0],
-            [1, 0],
-            [1, 1],
-            [0, 0],
-          ],
-        ],
-        [
-          [
-            [5, 5],
-            [6, 5],
-            [6, 6],
-            [5, 5],
-          ],
-        ],
-      ],
-    }
-
-    expect(boundsOf(zoneCollection(multi))).toEqual([0, 0, 6, 6])
-  })
-
-  it('returns null for an empty collection', () => {
-    expect(boundsOf({ type: 'FeatureCollection', features: [] })).toBeNull()
+    expect(zoneCountLabel(zone)).toBe('No locations here')
   })
 })
 

@@ -33,6 +33,7 @@ async def test_config_is_public_and_maps_audience_to_client_id() -> None:
         "dev_auth": False,
         # Unset by default, which is how the SPA knows to hide the layer.
         "mapy_api_key": "",
+        "zone_subdivision_countries": [],
     }
 
 
@@ -44,3 +45,16 @@ async def test_config_exposes_mapy_api_key() -> None:
 
     assert response.status_code == 200
     assert response.json()["mapy_api_key"] == "test-mapy-key"
+
+
+@pytest.mark.asyncio
+async def test_config_exposes_zone_subdivision_countries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Set the way a deployment would: one comma-separated env var.
+    monkeypatch.setenv("ZONE_SUBDIVISION_COUNTRIES", " cz, DE,,cz ")
+
+    response = await _fetch_config(Settings())
+
+    assert response.status_code == 200
+    assert response.json()["zone_subdivision_countries"] == ["CZ", "DE"]

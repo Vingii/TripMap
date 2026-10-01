@@ -9,7 +9,7 @@ migrate-down:
 migrate-revision:
 	uv run alembic revision --autogenerate -m "$(m)"
 
-# Fill in subdivision_code for locations created before the column existed.
+# Fill in subdivision_codes for locations that were never resolved.
 # One Nominatim call per location, rate-limited; safe to re-run.
 backfill-subdivisions:
 	uv run python -m app.scripts.backfill_subdivision_codes

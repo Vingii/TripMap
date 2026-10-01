@@ -8,9 +8,9 @@ export interface Location {
   lat: number
   lng: number
   country_code: string | null
-  // ISO 3166-2 first-level subdivision (e.g. "US-CA"); null when the geocoder
-  // could not name one, or for rows created before the column existed.
-  subdivision_code: string | null
+  // Every ISO 3166-2 code the point falls in, broadest level first (e.g.
+  // ["FR-IDF", "FR-75"]); empty when the geocoder could not name any yet.
+  subdivision_codes: string[]
   // Scoped to the current user: whether *they* have marked this location visited.
   visited: boolean
   created_at: string
@@ -25,7 +25,7 @@ export interface LocationCreate {
   country_code?: string | null
   // Only read when country_code is supplied; otherwise both come from the
   // backend's own reverse-geocode call.
-  subdivision_code?: string | null
+  subdivision_codes?: string[] | null
 }
 
 export interface LocationUpdate {

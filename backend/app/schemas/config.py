@@ -20,3 +20,6 @@ class ClientConfig(BaseModel):
     # the Mapy.com base layer in that case. Browser-visible by necessity: tile
     # requests go straight from the client to api.mapy.com.
     mapy_api_key: str = ""
+    # Countries the Zone view always shows split into subdivisions, as
+    # uppercased ISO 3166-1 alpha-2 codes.
+    zone_subdivision_countries: list[str] = []
