@@ -16,36 +16,22 @@ import { useBaseLayerStore } from './baseLayer'
 //
 // The map's own toggles are session-level choices remembered per device, so
 // loading the profile must not clobber them — it only seeds stores that have no
-// local choice yet (`override: false`). Saving on the Settings page is itself an
-// explicit choice, so it does take effect immediately (`override: true`).
+// local choice yet. Saving is itself an explicit choice, so the fields being
+// saved do take effect immediately — but only those: the nav theme toggle saves
+// just `theme`, and must not reset the map's projection or filter on the way.
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<UserSettings | null>(null)
-
-  function applyToStores(
-    s: UserSettings,
-    { override }: { override: boolean },
-  ): void {
-    // Theme and map filter have no competing session state: the nav theme
-    // toggle writes straight back through save(), and the filter is per-visit.
-    useThemeStore().set(s.theme)
-    useMapFilterStore().set(s.default_map_filter)
-
-    const projection = useProjectionStore()
-    const baseLayer = useBaseLayerStore()
-    if (override) {
-      projection.set(s.default_projection)
-      baseLayer.set(s.default_base_layer)
-    } else {
-      projection.applyDefault(s.default_projection)
-      baseLayer.applyDefault(s.default_base_layer)
-    }
-  }
 
   // Seed from the profile loaded at login. Saved defaults apply only where the
   // user has not already chosen on this device.
   function hydrate(s: UserSettings): void {
     settings.value = s
-    applyToStores(s, { override: false })
+    // Theme and map filter have no competing session state: the nav theme
+    // toggle writes straight back through save(), and the filter is per-visit.
+    useThemeStore().set(s.theme)
+    useMapFilterStore().set(s.default_map_filter)
+    useProjectionStore().applyDefault(s.default_projection)
+    useBaseLayerStore().applyDefault(s.default_base_layer)
   }
 
   async function refresh(): Promise<void> {
@@ -55,9 +41,18 @@ export const useSettingsStore = defineStore('settings', () => {
   async function save(patch: UserSettingsUpdate): Promise<UserSettings> {
     const updated = await updateMySettings(patch)
     settings.value = updated
-    // Picking a default in Settings is an explicit act, so it wins over
-    // whatever this device had chosen before.
-    applyToStores(updated, { override: true })
+    // Picking a default is an explicit act, so it wins over whatever this
+    // device had chosen before — for the fields in this patch only.
+    if (patch.theme !== undefined) useThemeStore().set(updated.theme)
+    if (patch.default_map_filter !== undefined) {
+      useMapFilterStore().set(updated.default_map_filter)
+    }
+    if (patch.default_projection !== undefined) {
+      useProjectionStore().set(updated.default_projection)
+    }
+    if (patch.default_base_layer !== undefined) {
+      useBaseLayerStore().set(updated.default_base_layer)
+    }
     return updated
   }
 

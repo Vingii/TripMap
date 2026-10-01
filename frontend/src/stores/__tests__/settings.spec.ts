@@ -108,6 +108,25 @@ describe('settings store', () => {
     expect(useProjectionStore().projection).toBe('globe')
   })
 
+  it('save leaves map choices alone when only the theme changes', async () => {
+    // The nav theme toggle saves just `theme`; it must not snap the map back
+    // to the account's default projection, base layer or filter.
+    vi.mocked(updateMySettings).mockResolvedValue(
+      makeSettings({ theme: 'dark' }),
+    )
+    const store = useSettingsStore()
+    useProjectionStore().set('globe')
+    useBaseLayerStore().set('mapy')
+    useMapFilterStore().set('visited')
+
+    await store.save({ theme: 'dark' })
+
+    expect(useThemeStore().theme).toBe('dark')
+    expect(useProjectionStore().projection).toBe('globe')
+    expect(useBaseLayerStore().baseLayer).toBe('mapy')
+    expect(useMapFilterStore().filter).toBe('visited')
+  })
+
   it('refresh loads settings from the API', async () => {
     vi.mocked(getMySettings).mockResolvedValue(
       makeSettings({ immich_api_key_set: true }),
