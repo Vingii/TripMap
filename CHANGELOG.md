@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.0](https://github.com/Vingii/TripMap/compare/v1.5.0...v1.6.0) (2026-10-01)
+
+
+### Features
+
+* bundle Natural Earth zone geometry (TM-24) ([#30](https://github.com/Vingii/TripMap/issues/30)) ([0e727f2](https://github.com/Vingii/TripMap/commit/0e727f2f2b36b78f0b0b8299d906c9ac5e749d8f))
+* improve zone view (TM-37) ([#33](https://github.com/Vingii/TripMap/issues/33)) ([0d1235c](https://github.com/Vingii/TripMap/commit/0d1235ccde0ba96964957f919a34217e9048cd78))
+* zone view choropleth (TM-13) ([#32](https://github.com/Vingii/TripMap/issues/32)) ([0994a1f](https://github.com/Vingii/TripMap/commit/0994a1fc93ded8d51ffb2c5097650071b239734c))
+
 ## [1.5.0](https://github.com/Vingii/TripMap/compare/v1.4.0...v1.5.0) (2026-09-20)
 
 
