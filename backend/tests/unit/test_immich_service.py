@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 
 import httpx
@@ -54,30 +55,59 @@ async def test_search_without_query_lists_all_sorted_by_name() -> None:
     assert albums[2].asset_count == 0
 
 
-async def test_get_album_maps_assets() -> None:
+def _album_handler(pages: list[list[dict[str, str]]], order: str = "desc") -> Handler:
+    """Immich 3: album metadata without assets, assets via paged metadata search."""
+
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == f"/api/albums/{ALBUM_ID}"
-        assert request.url.params["withoutAssets"] == "false"
+        if request.url.path == f"/api/albums/{ALBUM_ID}":
+            assert request.url.params["withoutAssets"] == "true"
+            return httpx.Response(
+                200,
+                json={
+                    "id": ALBUM_ID,
+                    "albumName": "Paris",
+                    "assetCount": sum(len(p) for p in pages),
+                    "albumThumbnailAssetId": "x1",
+                    "order": order,
+                },
+            )
+        assert request.method == "POST"
+        assert request.url.path == "/api/search/metadata"
+        body = json.loads(request.content)
+        assert body["albumIds"] == [ALBUM_ID]
+        assert body["order"] == order
+        page = body["page"]
+        next_page = str(page + 1) if page < len(pages) else None
+        items = pages[page - 1]
         return httpx.Response(
             200,
-            json={
-                "id": ALBUM_ID,
-                "albumName": "Paris",
-                "assetCount": 2,
-                "albumThumbnailAssetId": "x1",
-                "assets": [{"id": "x1", "type": "IMAGE"}, {"id": "x2", "type": "VIDEO"}],
-            },
+            json={"assets": {"items": items, "count": len(items), "nextPage": next_page}},
         )
 
-    album = await _service(handler).get_album("secret", ALBUM_ID)
+    return handler
+
+
+async def test_get_album_lists_assets_via_search() -> None:
+    pages = [[{"id": "x1", "type": "IMAGE"}, {"id": "x2", "type": "VIDEO"}]]
+
+    album = await _service(_album_handler(pages)).get_album("secret", ALBUM_ID)
 
     assert album.name == "Paris"
+    assert album.thumbnail_asset_id == "x1"
     assert [(a.id, a.type) for a in album.assets] == [("x1", "IMAGE"), ("x2", "VIDEO")]
+
+
+async def test_get_album_follows_search_pages_in_album_order() -> None:
+    pages = [[{"id": "x1", "type": "IMAGE"}], [{"id": "x2", "type": "IMAGE"}]]
+
+    album = await _service(_album_handler(pages, order="asc")).get_album("secret", ALBUM_ID)
+
+    assert [a.id for a in album.assets] == ["x1", "x2"]
 
 
 async def test_get_album_can_skip_assets() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.params["withoutAssets"] == "true"
+        assert request.url.path == f"/api/albums/{ALBUM_ID}", "assets must not be searched"
         return httpx.Response(200, json={"id": ALBUM_ID, "albumName": "Paris", "assetCount": 9})
 
     album = await _service(handler).get_album("secret", ALBUM_ID, with_assets=False)
@@ -109,6 +139,15 @@ async def test_upstream_status_maps_to_error(status: int, error: type[Exception]
 
     with pytest.raises(error):
         await service.get_album("secret", ALBUM_ID)
+
+
+async def test_missing_permission_names_it() -> None:
+    service = _service(
+        lambda _r: httpx.Response(403, json={"message": "Missing required permission: asset.view"})
+    )
+
+    with pytest.raises(ImmichKeyRejectedError, match="asset.view"):
+        await service.open_thumbnail("secret", ASSET_ID)
 
 
 async def test_network_failure_is_unavailable() -> None:

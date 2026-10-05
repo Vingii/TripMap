@@ -5,6 +5,7 @@ with two assets, so the tests exercise the real routes, settings lookup and DB
 without a network.
 """
 
+import json
 from collections.abc import Iterator
 from typing import Any
 
@@ -25,13 +26,14 @@ GONE_ALBUM_ID = "8b3e4e2a-4d9c-4c77-9c5a-3f4a5b6c7d8e"
 THUMB_ID = "0b9e8d7c-6a5b-4c3d-8e2f-1a2b3c4d5e6f"
 OTHER_ASSET_ID = "1c0f9e8d-7b6c-4d5e-9f3a-2b3c4d5e6f7a"
 
+# Immich 3 shape: the album carries no assets; they come from the metadata search.
 ALBUM = {
     "id": ALBUM_ID,
     "albumName": "Paris 2023",
     "assetCount": 2,
     "albumThumbnailAssetId": THUMB_ID,
-    "assets": [{"id": THUMB_ID, "type": "IMAGE"}, {"id": OTHER_ASSET_ID, "type": "VIDEO"}],
 }
+ASSETS = [{"id": THUMB_ID, "type": "IMAGE"}, {"id": OTHER_ASSET_ID, "type": "VIDEO"}]
 
 
 def _immich(request: httpx.Request) -> httpx.Response:
@@ -43,6 +45,8 @@ def _immich(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=[ALBUM, other])
     if path == f"/api/albums/{ALBUM_ID}":
         return httpx.Response(200, json=ALBUM)
+    if path == "/api/search/metadata" and json.loads(request.content)["albumIds"] == [ALBUM_ID]:
+        return httpx.Response(200, json={"assets": {"items": ASSETS, "nextPage": None}})
     if path.startswith("/api/assets/") and path.endswith("/thumbnail"):
         asset_id = path.split("/")[3]
         size = request.url.params["size"]
