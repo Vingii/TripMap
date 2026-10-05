@@ -1,5 +1,5 @@
 ---
-description: Pick a YouTrack task and implement it end-to-end: branch → implement → commit → push → PR
+description: Pick a YouTrack task and implement it end-to-end: branch → implement → commit → push → PR → green CI
 argument-hint: [task-id]
 ---
 
@@ -41,6 +41,22 @@ argument-hint: [task-id]
 - Implement according to the acceptance criteria in the YouTrack issue.
 - Ask clarifying questions along the way if you hit ambiguity that would meaningfully change the implementation — but keep interruptions minimal.
 - Run existing tests if available; fix any breakage before moving on.
+
+## Step 5b: Start the app for a human UI check
+
+Skip this step if the change has no user-visible UI (backend-only, tooling, docs).
+
+Otherwise, once tests and lint pass, bring up the Docker Compose stack from the repo root so the user can try the change in a browser:
+
+```sh
+docker compose up -d --build
+```
+
+- `--build` is required: the `app` image bakes in the built SPA, so frontend changes only appear after a rebuild. (`backend/app` is bind-mounted with `--reload`, so later backend-only edits apply without one.)
+- The container applies pending Alembic migrations on startup and runs with `DEV_AUTH=true`, so there is no login and no manual migrate step.
+- Wait until `curl -fsS http://127.0.0.1:8000/api/health` succeeds; if it doesn't, check `docker compose logs app` and fix the cause before handing over.
+
+Then give the user **http://127.0.0.1:8000** plus the specific pages and interactions to check (e.g. "open Albums → create an album at month precision"). Don't block on their reply: carry on with the remaining steps, and address any feedback with follow-up commits on the branch. Repeat the URL in the final report.
 
 ## Step 6: Commit
 
@@ -115,3 +131,22 @@ After the PR is created, add two comments with `gh pr comment {pr-number} --body
 ## Step 10: Link the PR back to YouTrack
 
 - Add a comment to the YouTrack issue with `mcp__youtrack__add_issue_comment`, body: `PR: {pr-url}`.
+
+## Step 11: Watch CI and fix failures
+
+CI is the only place the integration tests run against Postgres, so the PR isn't done until it is green.
+
+- Wait for the checks in the background (Bash with `run_in_background`) rather than polling in the foreground, e.g.:
+  ```sh
+  until s=$(gh pr checks {pr-number} --json name,bucket) && jq -e 'length>0 and all(.bucket!="pending")' <<<"$s" >/dev/null; do sleep 20; done; jq -r '.[]|"\(.name): \(.bucket)"' <<<"$s"
+  ```
+- If everything passes, report it and finish.
+- If a check fails:
+  1. Pull the failing output: `gh run view {run-id} --log-failed`, narrowed with `grep` to the `FAILED`/error lines and the first traceback, not the whole log.
+  2. Diagnose the root cause before changing anything. Fix the code or the test that is actually wrong. Never skip, delete or weaken a test, or edit the CI config, just to get to green.
+  3. Re-run the relevant checks locally where possible (ruff, mypy, unit tests, eslint, vitest, build), then commit (`{TASK-ID}: {fix summary}`, staging files by name) and push.
+  4. Go back to waiting on the new run.
+- If a failure is clearly unrelated to the branch (infrastructure, a flaky network fetch), re-run it once with `gh run rerun {run-id} --failed` instead of changing code.
+- After three fix attempts that still fail, or if the fix would need a decision that belongs to the user, stop and report what is failing and what you tried.
+
+Finish by telling the user the final CI status, what was fixed (if anything), and the UI URL from Step 5b if one was given.

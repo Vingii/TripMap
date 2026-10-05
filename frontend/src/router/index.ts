@@ -48,6 +48,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/AlbumsView.vue'),
   },
   {
+    path: '/albums/:id',
+    name: 'album',
+    component: () => import('../views/AlbumDetailView.vue'),
+    props: true,
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/SettingsView.vue'),

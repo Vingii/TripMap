@@ -1,4 +1,4 @@
-from app.models.album import Album, AlbumMember
+from app.models.album import Album, AlbumMember, DatePrecision
 from app.models.album_location import AlbumLocation
 from app.models.base import Base
 from app.models.location import Location
@@ -10,6 +10,7 @@ __all__ = [
     "AlbumLocation",
     "AlbumMember",
     "Base",
+    "DatePrecision",
     "Location",
     "LocationStatus",
     "User",
