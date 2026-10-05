@@ -5,6 +5,11 @@ argument-hint: [task-id]
 
 # dev — YouTrack task workflow
 
+## Step 0: Sync with main
+
+- Run `git status --porcelain`. If the working tree has uncommitted changes, stop and ask the user how to proceed (stash, commit, or abort) — never discard them.
+- Run `git checkout main && git pull --ff-only` so the new branch starts from the latest `main`.
+
 ## Step 1: Identify the task
 
 **If `$ARGUMENTS` is provided** (e.g. `/dev TM-14`):

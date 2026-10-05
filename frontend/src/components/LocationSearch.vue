@@ -14,10 +14,19 @@ const error = ref(false)
 
 let debounce: ReturnType<typeof setTimeout> | undefined
 let controller: AbortController | undefined
+// Name written into the input by select(); it must not trigger a new search
+// that would reopen the dropdown the user just closed by picking a place.
+let selectedName: string | undefined
 
 watch(query, (value) => {
   clearTimeout(debounce)
   controller?.abort()
+
+  if (value === selectedName) {
+    loading.value = false
+    return
+  }
+  selectedName = undefined
 
   if (!value.trim()) {
     results.value = []
@@ -51,6 +60,7 @@ async function run(value: string): Promise<void> {
 
 function select(place: GeocodeResult): void {
   emit('select', place)
+  selectedName = place.name
   query.value = place.name
   open.value = false
 }
