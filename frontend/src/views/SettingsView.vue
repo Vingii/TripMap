@@ -192,7 +192,26 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
           :disabled="form.clearImmich"
           :placeholder="immichKeySet ? '•••••••• (saved)' : 'Not set'"
           :class="inputClass"
+          aria-describedby="immich-key-help"
         />
+        <p
+          id="immich-key-help"
+          class="text-xs text-slate-500 dark:text-slate-400"
+        >
+          Create the key in Immich under
+          <a
+            v-if="config.immichUrl"
+            :href="`${config.immichUrl}/user-settings?isOpen=api-keys`"
+            target="_blank"
+            rel="noopener"
+            class="underline hover:text-slate-700 dark:hover:text-slate-200"
+            >Account Settings → API Keys</a
+          ><template v-else>Account Settings → API Keys</template>
+          with these permissions:
+          <code>album.read</code> (find and link albums),
+          <code>asset.read</code> (list an album's photos) and
+          <code>asset.view</code> (show thumbnails and covers).
+        </p>
         <label
           v-if="immichKeySet"
           class="flex items-center gap-2 pt-1 text-xs text-slate-500 dark:text-slate-400"
