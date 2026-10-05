@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  reactive,
+  ref,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MapCanvas from '../components/MapCanvas.vue'
 import GlobeCanvas from '../components/GlobeCanvas.vue'
@@ -44,6 +52,11 @@ const selected = ref<Location | null>(null)
 const actionError = ref<string | null>(null)
 // Most recent name-search match; "+ Add location" pre-fills from it.
 const lastSearch = ref<GeocodeResult | null>(null)
+// Briefly lit after a search match to point the user at "+ Add location".
+const ADD_HIGHLIGHT_MS = 1200
+const highlightAdd = ref(false)
+let highlightTimer: ReturnType<typeof setTimeout> | undefined
+onUnmounted(() => clearTimeout(highlightTimer))
 
 interface FormState {
   open: boolean
@@ -138,6 +151,11 @@ function onAddManual(): void {
 function onSearchSelect(place: GeocodeResult): void {
   mapRef.value?.flyToPlace(place.lat, place.lng, place.bounding_box)
   lastSearch.value = place
+  highlightAdd.value = true
+  clearTimeout(highlightTimer)
+  highlightTimer = setTimeout(() => {
+    highlightAdd.value = false
+  }, ADD_HIGHLIGHT_MS)
 }
 
 function onMarkerClick(location: Location): void {
@@ -329,7 +347,8 @@ async function onToggleVisited(): Promise<void> {
       <location-search @select="onSearchSelect" />
       <button
         type="button"
-        class="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        class="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-500 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        :class="highlightAdd && 'scale-105 ring-4 ring-sky-400/70'"
         @click="onAddManual"
       >
         + Add location
