@@ -1,21 +1,43 @@
 """End-to-end tests for the albums API against a real PostgreSQL+PostGIS DB.
 
 Locations are created with an explicit ``country_code`` so no reverse-geocode
-call is ever made.
+call is ever made; the geocoder is still stubbed because the locations route
+resolves it regardless.
 """
 
+from collections.abc import Iterator
 from typing import Any
 
+import httpx
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.deps import get_geocode_service
+from app.main import app
 from app.models.user import User
+from app.services.geocode import GeocodeService, _RateLimiter
 from tests.integration.conftest import Login
 
 pytestmark = pytest.mark.usefixtures("client")
 
 _MISSING = "00000000-0000-0000-0000-000000000000"
+
+
+@pytest.fixture(autouse=True)
+def _no_geocoding() -> Iterator[None]:
+    """Fail loudly should any request reach Nominatim."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"unexpected geocode request: {request.url}")
+
+    http = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://nominatim.test"
+    )
+    service = GeocodeService(http, search_limit=10, rate_limiter=_RateLimiter(0.0))
+    app.dependency_overrides[get_geocode_service] = lambda: service
+    yield
+    app.dependency_overrides.pop(get_geocode_service, None)
 
 
 async def _create_album(client: AsyncClient, **overrides: Any) -> dict[str, Any]:
