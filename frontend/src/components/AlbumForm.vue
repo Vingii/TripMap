@@ -88,8 +88,10 @@ function save(): void {
   })
 }
 
-const inputClass =
-  'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:focus:border-slate-500 dark:focus:ring-slate-600'
+// Width is left to each use: the date row lays its controls out side by side.
+const fieldClass =
+  'rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:focus:border-slate-500 dark:focus:ring-slate-600'
+const inputClass = `${fieldClass} w-full`
 const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
 </script>
 
@@ -114,7 +116,7 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
           type="text"
           autofocus
           maxlength="255"
-          placeholder="e.g. Summer in Provence"
+          placeholder="e.g. Italy"
           :class="inputClass"
         />
       </label>
@@ -135,7 +137,7 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
           <select
             :value="precision"
             aria-label="Date precision"
-            :class="[inputClass, 'w-28 flex-none']"
+            :class="[fieldClass, 'w-28 shrink-0']"
             @change="
               setPrecision(
                 ($event.target as HTMLSelectElement).value as DatePrecision,
@@ -151,14 +153,14 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
             v-model="day"
             type="date"
             aria-label="Date"
-            :class="inputClass"
+            :class="[fieldClass, 'min-w-0 flex-1']"
           />
           <template v-else>
             <select
               v-if="precision === 'month'"
               v-model.number="month"
               aria-label="Month"
-              :class="inputClass"
+              :class="[fieldClass, 'min-w-0 flex-1']"
             >
               <option
                 v-for="(monthName, index) in MONTH_NAMES"
@@ -175,7 +177,7 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
               max="9999"
               step="1"
               aria-label="Year"
-              :class="inputClass"
+              :class="[fieldClass, 'min-w-0 flex-1']"
               @input="year = parseYear($event)"
             />
           </template>
