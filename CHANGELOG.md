@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/Vingii/TripMap/compare/v1.7.0...v1.8.0) (2026-10-05)
+
+
+### Features
+
+* Immich integration (TM-16) ([#39](https://github.com/Vingii/TripMap/issues/39)) ([404fc9f](https://github.com/Vingii/TripMap/commit/404fc9f9e90dfc6c30832e15a77611cc0a42de33))
+
 ## [1.7.0](https://github.com/Vingii/TripMap/compare/v1.6.1...v1.7.0) (2026-10-05)
 
 
