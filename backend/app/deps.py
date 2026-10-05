@@ -9,6 +9,7 @@ from app.db import get_session
 from app.models.user import User
 from app.services.auth import AuthError, OIDCVerifier, TokenClaims
 from app.services.geocode import GeocodeService
+from app.services.immich import ImmichService
 from app.services.users import get_or_create_user
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -25,6 +26,14 @@ def get_geocode_service(request: Request) -> GeocodeService:
 
 
 GeocodeServiceDep = Annotated[GeocodeService, Depends(get_geocode_service)]
+
+
+def get_immich_service(request: Request) -> ImmichService:
+    service: ImmichService = request.app.state.immich_service
+    return service
+
+
+ImmichServiceDep = Annotated[ImmichService, Depends(get_immich_service)]
 
 
 def get_oidc_verifier(request: Request) -> OIDCVerifier:

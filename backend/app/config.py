@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     # it is a public, origin-restricted key, not a secret.
     mapy_api_key: str = ""
 
+    # Immich photo server. Requests to it are brokered by the backend so each
+    # user's API key (stored in their settings) never reaches the browser; when
+    # the base URL is empty the integration is switched off. The public URL is
+    # what the SPA links to for "open in Immich" and defaults to the base URL —
+    # set it when the backend reaches Immich over an internal address.
+    immich_base_url: str = ""
+    immich_public_url: str = ""
+    immich_timeout_seconds: float = 15.0
+
     # Countries (ISO 3166-1 alpha-2) the Zone view always draws at subdivision
     # level, as a comma-separated list, e.g. "CZ,DE". Instance-wide and read at
     # runtime, so a deployment can change it without rebuilding the image.

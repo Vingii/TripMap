@@ -16,6 +16,8 @@ services:
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
       MAPY_API_KEY: ${MAPY_API_KEY:-}
       ZONE_SUBDIVISION_COUNTRIES: ${ZONE_SUBDIVISION_COUNTRIES:-}
+      IMMICH_BASE_URL: ${IMMICH_BASE_URL:-}
+      IMMICH_PUBLIC_URL: ${IMMICH_PUBLIC_URL:-}
     healthcheck:
       test:
         - CMD

@@ -23,3 +23,6 @@ class ClientConfig(BaseModel):
     # Countries the Zone view always shows split into subdivisions, as
     # uppercased ISO 3166-1 alpha-2 codes.
     zone_subdivision_countries: list[str] = []
+    # Browser-facing Immich URL for "open in Immich" links, or empty when the
+    # Immich integration is not configured (the SPA then hides it).
+    immich_url: str = ""

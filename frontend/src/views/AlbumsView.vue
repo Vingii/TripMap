@@ -2,11 +2,14 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AlbumForm from '../components/AlbumForm.vue'
+import ProxiedImage from '../components/ProxiedImage.vue'
 import { useAlbumsStore } from '../stores/albums'
+import { useConfigStore } from '../stores/config'
 import { formatAlbumDate } from '../utils/albumDate'
-import type { AlbumCreate } from '../api/albums'
+import { albumCoverImage, type AlbumCreate } from '../api/albums'
 
 const store = useAlbumsStore()
+const configStore = useConfigStore()
 const router = useRouter()
 
 const creating = ref(false)
@@ -69,6 +72,18 @@ async function create(payload: AlbumCreate): Promise<void> {
           :to="{ name: 'album', params: { id: album.id } }"
           class="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50"
         >
+          <proxied-image
+            v-if="album.immich_album_id && configStore.immichUrl"
+            :key="album.cover_asset_id ?? ''"
+            :src="albumCoverImage(album.id)"
+            :alt="`Cover photo of ${album.name}`"
+            class="h-12 w-12 shrink-0 rounded-md"
+          />
+          <div
+            v-else
+            class="h-12 w-12 shrink-0 rounded-md bg-slate-100 dark:bg-slate-700"
+            aria-hidden="true"
+          />
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium text-slate-900 dark:text-slate-100">
               {{ album.name }}

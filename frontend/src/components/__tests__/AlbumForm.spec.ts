@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, type App } from 'vue'
+import { createPinia } from 'pinia'
 import AlbumForm from '../AlbumForm.vue'
 import type { AlbumCreate } from '../../api/albums'
 
@@ -19,6 +20,7 @@ function mount(initial?: AlbumCreate): AlbumCreate[] {
         onSubmit: (payload: AlbumCreate) => submitted.push(payload),
       }),
   })
+  app.use(createPinia())
   app.mount(root)
   return submitted
 }

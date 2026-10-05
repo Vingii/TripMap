@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import ImmichAlbumPicker from './ImmichAlbumPicker.vue'
+import { useConfigStore } from '../stores/config'
 import type { AlbumCreate, DatePrecision } from '../api/albums'
 
 const props = defineProps<{
   title: string
   // Seed values when editing; omitted when creating.
   initial?: AlbumCreate
+  // Name of the linked Immich album, when the caller has already loaded it.
+  immichAlbumName?: string | null
   submitLabel?: string
 }>()
 
@@ -35,7 +39,10 @@ const [seedYear, seedMonth] = seedDate.split('-').map(Number)
 
 const name = ref(props.initial?.name ?? '')
 const description = ref(props.initial?.description ?? '')
-const immichAlbumId = ref(props.initial?.immich_album_id ?? '')
+// The picker only appears when the server has Immich configured; otherwise an
+// existing link is passed through untouched.
+const configStore = useConfigStore()
+const immichAlbumId = ref<string | null>(props.initial?.immich_album_id ?? null)
 const precision = ref<DatePrecision>(props.initial?.date_precision ?? 'day')
 // Day precision edits the full date; month/year edit the parts they show.
 const day = ref(seedDate)
@@ -84,7 +91,7 @@ function save(): void {
     description: description.value.trim() || null,
     date: isoDate.value,
     date_precision: precision.value,
-    immich_album_id: immichAlbumId.value.trim() || null,
+    immich_album_id: immichAlbumId.value?.trim() || null,
   })
 }
 
@@ -184,16 +191,10 @@ const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300'
         </div>
       </fieldset>
 
-      <label class="block space-y-1">
-        <span :class="labelClass">Immich album ID</span>
-        <input
-          v-model="immichAlbumId"
-          type="text"
-          maxlength="255"
-          placeholder="Optional"
-          :class="inputClass"
-        />
-      </label>
+      <div v-if="configStore.immichUrl" class="space-y-1">
+        <span :class="labelClass">Immich album</span>
+        <immich-album-picker v-model="immichAlbumId" :name="immichAlbumName" />
+      </div>
 
       <div class="flex justify-end gap-2 pt-2">
         <button

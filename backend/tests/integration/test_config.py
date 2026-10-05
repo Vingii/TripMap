@@ -34,6 +34,8 @@ async def test_config_is_public_and_maps_audience_to_client_id() -> None:
         # Unset by default, which is how the SPA knows to hide the layer.
         "mapy_api_key": "",
         "zone_subdivision_countries": [],
+        # Empty while IMMICH_BASE_URL is unset, so the SPA hides Immich.
+        "immich_url": "",
     }
 
 
@@ -58,3 +60,26 @@ async def test_config_exposes_zone_subdivision_countries(
 
     assert response.status_code == 200
     assert response.json()["zone_subdivision_countries"] == ["CZ", "DE"]
+
+
+@pytest.mark.asyncio
+async def test_config_immich_url_prefers_public_url() -> None:
+    response = await _fetch_config(
+        Settings(immich_base_url="http://immich:2283/", immich_public_url="https://photos.example/")
+    )
+
+    assert response.json()["immich_url"] == "https://photos.example"
+
+
+@pytest.mark.asyncio
+async def test_config_immich_url_falls_back_to_base_url() -> None:
+    response = await _fetch_config(Settings(immich_base_url="https://photos.example/"))
+
+    assert response.json()["immich_url"] == "https://photos.example"
+
+
+@pytest.mark.asyncio
+async def test_config_immich_public_url_alone_does_not_enable_immich() -> None:
+    response = await _fetch_config(Settings(immich_public_url="https://photos.example"))
+
+    assert response.json()["immich_url"] == ""
