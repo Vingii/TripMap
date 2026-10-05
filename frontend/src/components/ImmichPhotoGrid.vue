@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ProxiedImage from './ProxiedImage.vue'
-import { immichAssetImage, type ImmichAsset } from '../api/immich'
+import { ImmichError, immichAssetImage, type ImmichAsset } from '../api/immich'
 
 // Thumbnail grid for a linked Immich album. Tiles are revealed a page at a
 // time and each image loads only as it nears the viewport, so a large album
@@ -18,12 +18,21 @@ const emit = defineEmits<{ 'set-cover': [assetId: string] }>()
 const PAGE_SIZE = 60
 
 const shown = ref(PAGE_SIZE)
+// Why thumbnails failed, from the first failure. Usually the same cause for
+// every tile (e.g. a key without asset.view), so one notice explains them all.
+const loadError = ref<string | null>(null)
 watch(
   () => props.assets,
   () => {
     shown.value = PAGE_SIZE
+    loadError.value = null
   },
 )
+
+function onImageError(error: unknown): void {
+  loadError.value ??=
+    error instanceof ImmichError ? error.message : 'Immich is unavailable.'
+}
 
 const visible = computed(() => props.assets.slice(0, shown.value))
 const remaining = computed(() => props.assets.length - visible.value.length)
@@ -37,6 +46,13 @@ const remaining = computed(() => props.assets.length - visible.value.length)
     This Immich album has no photos yet.
   </p>
   <div v-else class="space-y-3">
+    <p
+      v-if="loadError"
+      role="status"
+      class="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+    >
+      Some photos couldn't be loaded: {{ loadError }}
+    </p>
     <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
       <li
         v-for="(asset, index) in visible"
@@ -53,6 +69,7 @@ const remaining = computed(() => props.assets.length - visible.value.length)
             :src="immichAssetImage(asset.id)"
             :alt="`Photo ${index + 1}`"
             class="h-full w-full rounded-md"
+            @error="onImageError"
           />
         </a>
         <span
