@@ -18,6 +18,7 @@ from sqlalchemy import Row, Select, cast, delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.album_location import AlbumLocation
 from app.models.location import Location
 from app.models.user_location_state import LocationStatus, UserLocationState
 from app.schemas.location import LocationCreate, LocationRead, LocationUpdate
@@ -108,6 +109,19 @@ def _region_from(
 async def list_locations(db: AsyncSession, user_id: uuid.UUID) -> list[LocationRead]:
     rows = (await db.execute(_base_select(user_id).order_by(Location.created_at))).all()
     return [_to_read(row) for row in rows]
+
+
+async def list_album_locations(
+    db: AsyncSession, user_id: uuid.UUID, album_id: uuid.UUID
+) -> list[LocationRead]:
+    """The locations in an album, in the order they were added."""
+    stmt = (
+        _base_select(user_id)
+        .join(AlbumLocation, AlbumLocation.location_id == Location.id)
+        .where(AlbumLocation.album_id == album_id)
+        .order_by(AlbumLocation.created_at, Location.name)
+    )
+    return [_to_read(row) for row in (await db.execute(stmt)).all()]
 
 
 async def get_location(
