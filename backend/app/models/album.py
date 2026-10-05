@@ -30,6 +30,9 @@ class Album(TimestampMixin, Base):
         Enum(DatePrecision, name="date_precision"), nullable=False
     )
     immich_album_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # An asset of the linked Immich album chosen as the cover; when unset the
+    # Immich album's own thumbnail is used instead.
+    cover_asset_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )

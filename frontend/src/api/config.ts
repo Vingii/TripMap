@@ -14,6 +14,9 @@ export interface ClientConfig {
   // ISO 3166-1 alpha-2 codes the Zone view always draws split into
   // subdivisions; absent or empty when none are configured.
   zone_subdivision_countries?: string[]
+  // Browser-facing Immich URL used for "open in Immich" links; empty or absent
+  // when the server has no Immich configured, which hides the integration.
+  immich_url?: string
 }
 
 export async function getClientConfig(): Promise<ClientConfig> {

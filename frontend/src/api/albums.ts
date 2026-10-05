@@ -15,6 +15,9 @@ export interface Album {
   date: string
   date_precision: DatePrecision
   immich_album_id: string | null
+  // Asset of the linked Immich album picked as the cover; null falls back to
+  // the Immich album's own thumbnail.
+  cover_asset_id: string | null
   location_count: number
   created_at: string
   updated_at: string
@@ -33,8 +36,11 @@ export interface AlbumCreate {
   immich_album_id?: string | null
 }
 
-// Only the keys present change; `null` clears description / immich_album_id.
-export type AlbumUpdate = Partial<AlbumCreate>
+// Only the keys present change; `null` clears description / immich_album_id /
+// cover_asset_id. Changing or clearing immich_album_id also clears the cover.
+export type AlbumUpdate = Partial<AlbumCreate> & {
+  cover_asset_id?: string | null
+}
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
@@ -67,6 +73,15 @@ export async function updateAlbum(
       body: JSON.stringify(input),
     }),
   )
+}
+
+// Image source for an album's cover (load it with `loadImage`). Served
+// uncached, so a newly picked cover shows up under the same path.
+export function albumCoverImage(
+  id: string,
+  size: 'thumbnail' | 'preview' = 'thumbnail',
+): string {
+  return `/api/albums/${id}/cover?size=${size}`
 }
 
 export async function deleteAlbum(id: string): Promise<void> {

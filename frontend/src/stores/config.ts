@@ -20,6 +20,9 @@ export const useConfigStore = defineStore('config', () => {
     () => config.value?.zone_subdivision_countries ?? [],
   )
 
+  // Empty when the backend has no IMMICH_BASE_URL — Immich features are hidden.
+  const immichUrl = computed<string>(() => config.value?.immich_url ?? '')
+
   async function load(): Promise<void> {
     if (config.value) return
     // A failed fetch leaves `config` null and clears `pending`, so a later
@@ -34,5 +37,5 @@ export const useConfigStore = defineStore('config', () => {
     await pending
   }
 
-  return { config, mapyApiKey, zoneSubdivisionCountries, load }
+  return { config, mapyApiKey, zoneSubdivisionCountries, immichUrl, load }
 })

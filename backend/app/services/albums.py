@@ -44,6 +44,7 @@ def _to_read(row: Row[tuple[Album, int]]) -> AlbumRead:
         date=album.date,
         date_precision=album.date_precision,
         immich_album_id=album.immich_album_id,
+        cover_asset_id=album.cover_asset_id,
         location_count=location_count,
         created_at=album.created_at,
         updated_at=album.updated_at,
@@ -71,6 +72,14 @@ async def get_album(
     return AlbumDetail(**_to_read(row).model_dump(), locations=locations)
 
 
+async def get_immich_link(
+    db: AsyncSession, owner_id: uuid.UUID, album_id: uuid.UUID
+) -> tuple[str | None, str | None] | None:
+    """The album's ``(immich_album_id, cover_asset_id)``, or ``None`` if it does not exist."""
+    album = await _owned(db, owner_id, album_id)
+    return None if album is None else (album.immich_album_id, album.cover_asset_id)
+
+
 async def create_album(db: AsyncSession, owner_id: uuid.UUID, data: AlbumCreate) -> AlbumDetail:
     album = Album(owner_id=owner_id, **data.model_dump())
     db.add(album)
@@ -92,6 +101,11 @@ async def update_album(
     for field in ("name", "date", "date_precision"):
         if changes.get(field, ...) is None:
             del changes[field]
+    # A cover is an asset of the linked Immich album, so it cannot outlive the link.
+    if "immich_album_id" in changes and changes["immich_album_id"] != album.immich_album_id:
+        changes.setdefault("cover_asset_id", None)
+    if changes.get("immich_album_id", album.immich_album_id) is None:
+        changes["cover_asset_id"] = None
     for field, value in changes.items():
         setattr(album, field, value)
 

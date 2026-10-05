@@ -25,4 +25,11 @@ async def get_client_config(
         dev_auth=settings.dev_auth,
         mapy_api_key=settings.mapy_api_key,
         zone_subdivision_countries=settings.zone_subdivision_countries,
+        immich_url=_immich_url(settings),
     )
+
+
+def _immich_url(settings: Settings) -> str:
+    if not settings.immich_base_url:
+        return ""
+    return (settings.immich_public_url or settings.immich_base_url).rstrip("/")

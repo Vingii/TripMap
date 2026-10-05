@@ -3,15 +3,26 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AlbumForm from '../components/AlbumForm.vue'
 import AlbumMiniMap from '../components/AlbumMiniMap.vue'
+import ImmichPhotoGrid from '../components/ImmichPhotoGrid.vue'
+import ProxiedImage from '../components/ProxiedImage.vue'
 import { useAlbumsStore } from '../stores/albums'
+import { useConfigStore } from '../stores/config'
 import { useLocationsStore } from '../stores/locations'
 import { formatAlbumDate } from '../utils/albumDate'
 import type { AlbumCreate } from '../api/albums'
+import {
+  getImmichAlbum,
+  ImmichError,
+  immichAlbumUrl,
+  immichAssetImage,
+  type ImmichAlbumDetail,
+} from '../api/immich'
 
 const props = defineProps<{ id: string }>()
 
 const store = useAlbumsStore()
 const locationsStore = useLocationsStore()
+const configStore = useConfigStore()
 const router = useRouter()
 
 const editing = ref(false)
@@ -32,6 +43,58 @@ watch(
     void store.fetchOne(id)
   },
   { immediate: true },
+)
+
+// The linked Immich album loads on its own, after the album itself, so a slow
+// or unreachable Immich never holds up the rest of the page.
+type ImmichState = 'idle' | 'loading' | 'ready' | 'not-found' | 'error'
+const immichAlbum = ref<ImmichAlbumDetail | null>(null)
+const immichState = ref<ImmichState>('idle')
+const immichError = ref<string | null>(null)
+let immichRequest = 0
+
+async function loadImmich(immichId: string | null): Promise<void> {
+  const request = ++immichRequest
+  immichAlbum.value = null
+  immichError.value = null
+  if (!immichId || !configStore.immichUrl) {
+    immichState.value = 'idle'
+    return
+  }
+  immichState.value = 'loading'
+  try {
+    const loaded = await getImmichAlbum(immichId)
+    if (request !== immichRequest) return
+    immichAlbum.value = loaded
+    immichState.value = 'ready'
+  } catch (e) {
+    if (request !== immichRequest) return
+    if (e instanceof ImmichError && e.notFound) {
+      immichState.value = 'not-found'
+    } else {
+      immichState.value = 'error'
+      immichError.value =
+        e instanceof ImmichError ? e.message : 'Immich is unavailable.'
+    }
+  }
+}
+
+// Reload only when the link itself changes, not on every album update.
+watch(
+  () => (album.value ? [album.value.id, album.value.immich_album_id] : null),
+  (link, previous) => {
+    if (link?.[0] === previous?.[0] && link?.[1] === previous?.[1]) return
+    void loadImmich(link?.[1] ?? null)
+  },
+  { immediate: true },
+)
+
+// The chosen cover, else the Immich album's own thumbnail.
+const coverAssetId = computed(
+  () =>
+    album.value?.cover_asset_id ??
+    immichAlbum.value?.thumbnail_asset_id ??
+    null,
 )
 
 // The picker needs every location, not just the album's.
@@ -92,6 +155,20 @@ async function addLocation(locationId: string): Promise<void> {
   }
 }
 
+function setCover(assetId: string): void {
+  void run(
+    () => store.update(props.id, { cover_asset_id: assetId }),
+    'Failed to set the cover photo.',
+  )
+}
+
+function unlinkImmich(): void {
+  void run(
+    () => store.update(props.id, { immich_album_id: null }),
+    'Failed to unlink the Immich album.',
+  )
+}
+
 function removeLocation(locationId: string): void {
   void run(
     () => store.removeLocation(props.id, locationId),
@@ -120,13 +197,34 @@ function removeLocation(locationId: string): void {
     </p>
 
     <template v-else>
+      <proxied-image
+        v-if="immichState === 'ready' && coverAssetId"
+        :key="coverAssetId"
+        :src="immichAssetImage(coverAssetId, 'preview')"
+        :alt="`Cover photo of ${album.name}`"
+        eager
+        class="h-64 w-full rounded-lg sm:h-80"
+      />
+
       <header class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0 space-y-1">
           <h1 class="text-2xl font-semibold">{{ album.name }}</h1>
           <p class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
             {{ formatAlbumDate(album.date, album.date_precision) }}
+            <a
+              v-if="album.immich_album_id && configStore.immichUrl"
+              :href="
+                immichAlbumUrl(configStore.immichUrl, album.immich_album_id)
+              "
+              target="_blank"
+              rel="noopener"
+              class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:hover:bg-indigo-900"
+              title="Open in Immich"
+            >
+              {{ immichAlbum?.name ?? 'Immich album' }} ↗
+            </a>
             <span
-              v-if="album.immich_album_id"
+              v-else-if="album.immich_album_id"
               class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
               :title="`Immich album ${album.immich_album_id}`"
             >
@@ -161,6 +259,38 @@ function removeLocation(locationId: string): void {
       <p v-if="actionError" class="text-sm text-red-600 dark:text-red-400">
         {{ actionError }}
       </p>
+
+      <div
+        v-if="immichState === 'error'"
+        role="status"
+        class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+      >
+        <span>Couldn't load photos from Immich: {{ immichError }}</span>
+        <button
+          type="button"
+          class="font-medium underline hover:no-underline"
+          @click="loadImmich(album.immich_album_id)"
+        >
+          Retry
+        </button>
+      </div>
+      <div
+        v-else-if="immichState === 'not-found'"
+        role="status"
+        class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+      >
+        <span>
+          Album not found in Immich — it may have been deleted, or your API key
+          can't see it.
+        </span>
+        <button
+          type="button"
+          class="font-medium underline hover:no-underline"
+          @click="unlinkImmich"
+        >
+          Unlink
+        </button>
+      </div>
 
       <album-mini-map :locations="album.locations" />
 
@@ -232,10 +362,35 @@ function removeLocation(locationId: string): void {
         </div>
       </div>
 
+      <section
+        v-if="immichState === 'loading' || immichAlbum"
+        class="space-y-2"
+      >
+        <h2 class="text-lg font-semibold">
+          Photos<template v-if="immichAlbum">
+            ({{ immichAlbum.assets.length }})</template
+          >
+        </h2>
+        <p
+          v-if="immichState === 'loading'"
+          class="text-sm text-slate-600 dark:text-slate-400"
+        >
+          Loading photos…
+        </p>
+        <immich-photo-grid
+          v-else-if="immichAlbum"
+          :assets="immichAlbum.assets"
+          :cover-asset-id="coverAssetId"
+          :immich-url="configStore.immichUrl"
+          @set-cover="setCover"
+        />
+      </section>
+
       <album-form
         v-if="editing"
         title="Edit album"
         :initial="album"
+        :immich-album-name="immichAlbum?.name"
         @submit="save"
         @cancel="editing = false"
       />

@@ -1,10 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 
-from app.deps import CurrentUserDep, SessionDep
+from app.deps import CurrentUserDep, ImmichServiceDep, SessionDep
+from app.routers.immich import stream_image
 from app.schemas.album import AlbumCreate, AlbumDetail, AlbumLocationAdd, AlbumRead, AlbumUpdate
 from app.services import albums as service
+from app.services.immich import ThumbnailSize
+from app.services.users import immich_api_key
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -27,6 +31,42 @@ async def get_album(db: SessionDep, user: CurrentUserDep, album_id: uuid.UUID) -
     if album is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, _NOT_FOUND)
     return album
+
+
+@router.get(
+    "/{album_id}/cover",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"image/*": {}}}},
+)
+async def get_album_cover(
+    db: SessionDep,
+    user: CurrentUserDep,
+    immich: ImmichServiceDep,
+    album_id: uuid.UUID,
+    size: ThumbnailSize = "thumbnail",
+) -> StreamingResponse:
+    """The album's cover image: the chosen cover asset, else the linked Immich
+    album's own thumbnail.
+
+    Not cacheable, unlike asset thumbnails — the same URL serves a different
+    image once another cover is picked.
+    """
+    link = await service.get_immich_link(db, user.id, album_id)
+    if link is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, _NOT_FOUND)
+    immich_album_id, cover_asset_id = link
+    if immich_album_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Album is not linked to Immich")
+
+    api_key = immich_api_key(user)
+    asset_id = (
+        cover_asset_id
+        or (await immich.get_album(api_key, immich_album_id, with_assets=False)).thumbnail_asset_id
+    )
+    if asset_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Album has no cover")
+    image = await immich.open_thumbnail(api_key, asset_id, size)
+    return stream_image(image, "private, no-cache")
 
 
 @router.patch("/{album_id}", response_model=AlbumDetail)
