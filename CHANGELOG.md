@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/Vingii/TripMap/compare/v1.6.1...v1.7.0) (2026-10-05)
+
+
+### Features
+
+* albums (TM-15) ([#38](https://github.com/Vingii/TripMap/issues/38)) ([37d9d33](https://github.com/Vingii/TripMap/commit/37d9d3379db2f5cdfe00120da457e5b8a9761da9))
+* keep search dropdown closed after selecting a place (TM-38) ([#36](https://github.com/Vingii/TripMap/issues/36)) ([e4cb040](https://github.com/Vingii/TripMap/commit/e4cb04087798aa6ba49b3b18aa08e18b793ff54d))
+
 ## [1.6.1](https://github.com/Vingii/TripMap/compare/v1.6.0...v1.6.1) (2026-10-01)
 
 
