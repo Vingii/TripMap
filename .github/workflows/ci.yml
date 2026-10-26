@@ -121,15 +121,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
-      # System libraries live outside the cache, so this runs every time.
-      # man-db's apt trigger rebuilds the man page index after every install,
-      # which takes minutes on hosted runners and is useless here.
-      - name: Install Chromium system dependencies
-        run: |
-          sudo rm -f /var/lib/man-db/auto-update
-          npx playwright install-deps chromium
-
-      # Headless runs only need the headless shell, not full Chromium.
+      # No `--with-deps` / `install-deps`: the runner image ships Google Chrome,
+      # so the shared libraries are already there, and the extra packages it
+      # would add (CJK fonts, Xvfb) come from an apt mirror that has taken ten
+      # minutes to serve them. Headless runs only need the headless shell.
       - name: Install Chromium
         if: steps.browser-cache.outputs.cache-hit != 'true'
         run: npx playwright install --only-shell chromium
