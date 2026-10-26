@@ -108,8 +108,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # The browser build is pinned to the Playwright version, so it can be
+      # reused until the dependency is bumped.
+      - name: Cache Playwright browsers
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # System libraries live outside the cache, so this runs every time.
+      # man-db's apt trigger rebuilds the man page index after every install,
+      # which takes minutes on hosted runners and is useless here.
+      - name: Install Chromium system dependencies
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          npx playwright install-deps chromium
+
+      # Headless runs only need the headless shell, not full Chromium.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --only-shell chromium
 
       # Builds the app image and starts the isolated `e2e` compose stack itself.
       - name: Playwright
