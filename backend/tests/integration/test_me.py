@@ -97,3 +97,35 @@ async def test_patch_settings_rejects_unknown_key(client: AsyncClient) -> None:
 async def test_patch_settings_rejects_invalid_value(client: AsyncClient) -> None:
     response = await client.patch("/api/me/settings", json={"theme": "neon"})
     assert response.status_code == 422
+
+
+async def test_changelog_last_seen_starts_null(client: AsyncClient) -> None:
+    response = await client.get("/api/me/changelog/last-seen")
+
+    assert response.status_code == 200
+    assert response.json() == {"last_seen_entry_id": None}
+
+
+async def test_put_changelog_last_seen_persists(client: AsyncClient) -> None:
+    put = await client.put("/api/me/changelog/last-seen", json={"entry_id": "2026-10-26"})
+    assert put.status_code == 200
+    assert put.json() == {"last_seen_entry_id": "2026-10-26"}
+
+    get = await client.get("/api/me/changelog/last-seen")
+    assert get.json() == {"last_seen_entry_id": "2026-10-26"}
+
+
+@pytest.mark.parametrize("payload", [{"entry_id": ""}, {}, {"entry_id": "x" * 256}])
+async def test_put_changelog_last_seen_rejects_invalid_ids(
+    client: AsyncClient, payload: dict[str, str]
+) -> None:
+    response = await client.put("/api/me/changelog/last-seen", json=payload)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.noauth
+async def test_changelog_last_seen_requires_auth(client: AsyncClient) -> None:
+    assert (await client.get("/api/me/changelog/last-seen")).status_code == 401
+    put = await client.put("/api/me/changelog/last-seen", json={"entry_id": "a"})
+    assert put.status_code == 401

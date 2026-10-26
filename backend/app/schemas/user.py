@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Theme = Literal["light", "dark", "system"]
 Projection = Literal["flat", "globe"]
@@ -91,3 +91,18 @@ class UserRead(BaseModel):
     settings: UserSettingsRead
     created_at: datetime
     updated_at: datetime
+
+
+class ChangelogLastSeen(BaseModel):
+    """The newest changelog entry the user has seen; ``None`` before the SPA
+    has recorded any (it then marks the newest entry seen without popping up)."""
+
+    last_seen_entry_id: str | None
+
+
+class ChangelogLastSeenUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Changelog entry IDs are bundled with the SPA, so the server stores any
+    # well-formed one without checking it exists.
+    entry_id: str = Field(min_length=1, max_length=255)

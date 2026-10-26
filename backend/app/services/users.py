@@ -56,6 +56,12 @@ async def update_settings(db: AsyncSession, user: User, patch: dict[str, object]
     return settings
 
 
+async def set_last_seen_changelog_entry(db: AsyncSession, user: User, entry_id: str) -> str:
+    user.last_seen_changelog_entry_id = entry_id
+    await db.commit()
+    return entry_id
+
+
 def immich_api_key(user: User) -> str | None:
     """The user's stored Immich API key, if they have set one."""
     return UserSettings.model_validate(user.settings).immich_api_key
