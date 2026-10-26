@@ -57,3 +57,24 @@ export async function updateMySettings(
     }),
   )
 }
+
+export interface ChangelogLastSeen {
+  // Null until the SPA has recorded an entry for this user.
+  last_seen_entry_id: string | null
+}
+
+export async function getChangelogLastSeen(): Promise<ChangelogLastSeen> {
+  return parse<ChangelogLastSeen>(await apiFetch('/api/me/changelog/last-seen'))
+}
+
+export async function setChangelogLastSeen(
+  entryId: string,
+): Promise<ChangelogLastSeen> {
+  return parse<ChangelogLastSeen>(
+    await apiFetch('/api/me/changelog/last-seen', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry_id: entryId }),
+    }),
+  )
+}

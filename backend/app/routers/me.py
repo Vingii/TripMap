@@ -2,7 +2,14 @@ from fastapi import APIRouter
 
 from app.deps import CurrentUserDep, SessionDep
 from app.models.user import User
-from app.schemas.user import UserRead, UserSettings, UserSettingsRead, UserSettingsUpdate
+from app.schemas.user import (
+    ChangelogLastSeen,
+    ChangelogLastSeenUpdate,
+    UserRead,
+    UserSettings,
+    UserSettingsRead,
+    UserSettingsUpdate,
+)
 from app.services import users as service
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -35,3 +42,16 @@ async def update_my_settings(
 ) -> UserSettingsRead:
     settings = await service.update_settings(db, user, payload.model_dump(exclude_unset=True))
     return UserSettingsRead.from_settings(settings)
+
+
+@router.get("/changelog/last-seen", response_model=ChangelogLastSeen)
+async def get_changelog_last_seen(user: CurrentUserDep) -> ChangelogLastSeen:
+    return ChangelogLastSeen(last_seen_entry_id=user.last_seen_changelog_entry_id)
+
+
+@router.put("/changelog/last-seen", response_model=ChangelogLastSeen)
+async def set_changelog_last_seen(
+    db: SessionDep, user: CurrentUserDep, payload: ChangelogLastSeenUpdate
+) -> ChangelogLastSeen:
+    entry_id = await service.set_last_seen_changelog_entry(db, user, payload.entry_id)
+    return ChangelogLastSeen(last_seen_entry_id=entry_id)

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import FeedbackForm from './FeedbackForm.vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
+import { useChangelogStore } from '../stores/changelog'
 import { useConfigStore } from '../stores/config'
 import { useSettingsStore } from '../stores/settings'
 
@@ -12,6 +13,7 @@ const settings = useSettingsStore()
 // The feedback button only appears when the server has YouTrack configured.
 const config = useConfigStore()
 const feedbackOpen = ref(false)
+const changelog = useChangelogStore()
 
 const userLabel = computed(
   () => auth.user?.display_name || auth.user?.email || '',
@@ -75,6 +77,29 @@ function toggleTheme(): void {
         </li>
       </ul>
       <div class="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          class="relative rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+          aria-label="Changelog"
+          title="Changelog"
+          @click="changelog.show()"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h4"
+            />
+          </svg>
+        </button>
         <button
           v-if="config.feedbackEnabled"
           type="button"

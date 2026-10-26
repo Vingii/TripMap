@@ -15,6 +15,9 @@ class User(TimestampMixin, Base):
     oidc_sub: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # ID of the newest changelog entry the user has seen; NULL until the SPA
+    # first records one. Entry IDs are bundled with the frontend.
+    last_seen_changelog_entry_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Free-form per-user preferences; shape is enforced by the UserSettings
     # Pydantic schema before anything is written here. ``Any`` is unavoidable for
     # a JSON column whose values are heterogeneous.
