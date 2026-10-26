@@ -8,6 +8,7 @@ from app.config import Settings, get_settings
 from app.db import get_session
 from app.models.user import User
 from app.services.auth import AuthError, OIDCVerifier, TokenClaims
+from app.services.feedback import FeedbackService
 from app.services.geocode import GeocodeService
 from app.services.immich import ImmichService
 from app.services.users import get_or_create_user
@@ -34,6 +35,14 @@ def get_immich_service(request: Request) -> ImmichService:
 
 
 ImmichServiceDep = Annotated[ImmichService, Depends(get_immich_service)]
+
+
+def get_feedback_service(request: Request) -> FeedbackService:
+    service: FeedbackService = request.app.state.feedback_service
+    return service
+
+
+FeedbackServiceDep = Annotated[FeedbackService, Depends(get_feedback_service)]
 
 
 def get_oidc_verifier(request: Request) -> OIDCVerifier:

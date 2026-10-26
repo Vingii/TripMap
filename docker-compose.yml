@@ -24,6 +24,9 @@ services:
       ZONE_SUBDIVISION_COUNTRIES: ${ZONE_SUBDIVISION_COUNTRIES:-}
       IMMICH_BASE_URL: ${IMMICH_BASE_URL:-}
       IMMICH_PUBLIC_URL: ${IMMICH_PUBLIC_URL:-}
+      YOUTRACK_BASE_URL: ${YOUTRACK_BASE_URL:-}
+      YOUTRACK_API_TOKEN: ${YOUTRACK_API_TOKEN:-}
+      YOUTRACK_PROJECT_ID: ${YOUTRACK_PROJECT_ID:-}
     volumes:
       # `:z` relabels the host dir with the shared container SELinux label so
       # the non-root user inside the container can read it on Fedora/RHEL.

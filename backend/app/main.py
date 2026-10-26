@@ -10,8 +10,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.deps import get_current_user
-from app.routers import albums, config, geocode, health, immich, locations, me
+from app.routers import albums, config, feedback, geocode, health, immich, locations, me
 from app.services.auth import create_oidc_verifier
+from app.services.feedback import FeedbackError, create_feedback_service
 from app.services.geocode import create_geocode_service
 from app.services.immich import ImmichError, create_immich_service
 
@@ -27,11 +28,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.geocode_service = create_geocode_service(settings)
     app.state.oidc_verifier = create_oidc_verifier(settings)
     app.state.immich_service = create_immich_service(settings)
+    app.state.feedback_service = create_feedback_service(settings)
     try:
         yield
     finally:
         await app.state.geocode_service.aclose()
         await app.state.immich_service.aclose()
+        await app.state.feedback_service.aclose()
         await app.state.oidc_verifier.aclose()
 
 
@@ -62,7 +65,9 @@ def create_app() -> FastAPI:
     app.include_router(albums.router, prefix="/api")
     app.include_router(me.router, prefix="/api")
     app.include_router(immich.router, prefix="/api")
+    app.include_router(feedback.router, prefix="/api")
     app.add_exception_handler(ImmichError, _immich_error)
+    app.add_exception_handler(FeedbackError, _feedback_error)
     _mount_frontend(app, settings.static_dir)
     return app
 
@@ -70,6 +75,12 @@ def create_app() -> FastAPI:
 async def _immich_error(_request: Request, exc: Exception) -> JSONResponse:
     """Immich failures carry their own status, in the default error body shape."""
     assert isinstance(exc, ImmichError)
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+
+
+async def _feedback_error(_request: Request, exc: Exception) -> JSONResponse:
+    """YouTrack failures carry their own status, in the default error body shape."""
+    assert isinstance(exc, FeedbackError)
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 

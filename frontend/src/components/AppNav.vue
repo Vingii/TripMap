@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import FeedbackForm from './FeedbackForm.vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
+import { useConfigStore } from '../stores/config'
 import { useSettingsStore } from '../stores/settings'
 
 const theme = useThemeStore()
 const auth = useAuthStore()
 const settings = useSettingsStore()
+// The feedback button only appears when the server has YouTrack configured.
+const config = useConfigStore()
+const feedbackOpen = ref(false)
 
 const userLabel = computed(
   () => auth.user?.display_name || auth.user?.email || '',
@@ -70,6 +75,30 @@ function toggleTheme(): void {
         </li>
       </ul>
       <div class="ml-auto flex items-center gap-2">
+        <button
+          v-if="config.feedbackEnabled"
+          type="button"
+          class="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+          aria-label="Send feedback"
+          title="Send feedback"
+          @click="feedbackOpen = true"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M8 10h8M8 14h5M21 12c0 4.42-4.03 8-9 8a9.9 9.9 0 01-4-.83L3 20l1.4-3.73A7.6 7.6 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"
+            />
+          </svg>
+        </button>
         <router-link
           v-if="userLabel"
           to="/settings"
@@ -131,5 +160,6 @@ function toggleTheme(): void {
         </button>
       </div>
     </div>
+    <feedback-form v-if="feedbackOpen" @close="feedbackOpen = false" />
   </nav>
 </template>

@@ -36,6 +36,8 @@ async def test_config_is_public_and_maps_audience_to_client_id() -> None:
         "zone_subdivision_countries": [],
         # Empty while IMMICH_BASE_URL is unset, so the SPA hides Immich.
         "immich_url": "",
+        # False until all YOUTRACK_* settings are present.
+        "feedback_enabled": False,
     }
 
 
@@ -83,3 +85,17 @@ async def test_config_immich_public_url_alone_does_not_enable_immich() -> None:
     response = await _fetch_config(Settings(immich_public_url="https://photos.example"))
 
     assert response.json()["immich_url"] == ""
+
+
+@pytest.mark.asyncio
+async def test_config_enables_feedback_only_when_youtrack_is_fully_configured() -> None:
+    youtrack = {
+        "youtrack_base_url": "https://youtrack.example",
+        "youtrack_api_token": "perm:token",
+        "youtrack_project_id": "TM",
+    }
+    full = await _fetch_config(Settings(**youtrack))
+    partial = await _fetch_config(Settings(**{**youtrack, "youtrack_api_token": ""}))
+
+    assert full.json()["feedback_enabled"] is True
+    assert partial.json()["feedback_enabled"] is False

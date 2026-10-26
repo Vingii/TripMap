@@ -26,6 +26,7 @@ async def get_client_config(
         mapy_api_key=settings.mapy_api_key,
         zone_subdivision_countries=settings.zone_subdivision_countries,
         immich_url=_immich_url(settings),
+        feedback_enabled=settings.feedback_configured,
     )
 
 

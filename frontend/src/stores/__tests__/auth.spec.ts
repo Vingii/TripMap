@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '../auth'
 import { getAuthToken, setAuthToken } from '../../api/client'
 import { isOidcConfigured } from '../../auth/oidc'
+import { router } from '../../router'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -82,6 +83,9 @@ describe('auth store', () => {
   })
 
   it('handleUnauthorized clears the in-memory token from the API client', () => {
+    // A real navigation lazy-loads the login view and can settle after the
+    // test environment is torn down (`history is not defined`), so stub it.
+    const replace = vi.spyOn(router, 'replace').mockResolvedValue(undefined)
     const auth = useAuthStore()
     auth.token = 'stale-token'
     setAuthToken('stale-token')
@@ -91,5 +95,8 @@ describe('auth store', () => {
     expect(auth.token).toBeNull()
     expect(auth.user).toBeNull()
     expect(getAuthToken()).toBeNull()
+    expect(replace).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'login' }),
+    )
   })
 })

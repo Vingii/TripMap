@@ -52,10 +52,24 @@ class Settings(BaseSettings):
     immich_public_url: str = ""
     immich_timeout_seconds: float = 15.0
 
+    # YouTrack, where in-app feedback is filed as "Request" issues. The backend
+    # holds the service token and creates issues on the user's behalf; nothing
+    # is stored locally. Feedback is switched off unless all three are set.
+    youtrack_base_url: str = ""
+    youtrack_api_token: str = ""
+    youtrack_project_id: str = ""
+    youtrack_timeout_seconds: float = 15.0
+    # Largest file a user may attach to a feedback message.
+    feedback_max_attachment_bytes: int = 10 * 1024 * 1024
+
     # Countries (ISO 3166-1 alpha-2) the Zone view always draws at subdivision
     # level, as a comma-separated list, e.g. "CZ,DE". Instance-wide and read at
     # runtime, so a deployment can change it without rebuilding the image.
     zone_subdivision_countries: Annotated[list[str], NoDecode] = []
+
+    @property
+    def feedback_configured(self) -> bool:
+        return bool(self.youtrack_base_url and self.youtrack_api_token and self.youtrack_project_id)
 
     @field_validator("zone_subdivision_countries", mode="before")
     @classmethod
