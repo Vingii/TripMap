@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/Vingii/TripMap/compare/v1.8.0...v1.9.0) (2026-10-26)
+
+
+### Features
+
+* in-app changelog (TM-30) ([#43](https://github.com/Vingii/TripMap/issues/43)) ([2727eaa](https://github.com/Vingii/TripMap/commit/2727eaa232cc616161f46e3e41108dde1682c93c))
+* in-app feedback filed to YouTrack (TM-29) ([#41](https://github.com/Vingii/TripMap/issues/41)) ([57bf2b5](https://github.com/Vingii/TripMap/commit/57bf2b54713249a9df014888c0fef26e13aa11fa))
+
 ## [1.8.0](https://github.com/Vingii/TripMap/compare/v1.7.0...v1.8.0) (2026-10-05)
 
 
