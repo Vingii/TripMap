@@ -23,6 +23,11 @@ export const useConfigStore = defineStore('config', () => {
   // Empty when the backend has no IMMICH_BASE_URL — Immich features are hidden.
   const immichUrl = computed<string>(() => config.value?.immich_url ?? '')
 
+  // False when the backend has no YouTrack configured — feedback is hidden.
+  const feedbackEnabled = computed<boolean>(
+    () => config.value?.feedback_enabled ?? false,
+  )
+
   async function load(): Promise<void> {
     if (config.value) return
     // A failed fetch leaves `config` null and clears `pending`, so a later
@@ -37,5 +42,12 @@ export const useConfigStore = defineStore('config', () => {
     await pending
   }
 
-  return { config, mapyApiKey, zoneSubdivisionCountries, immichUrl, load }
+  return {
+    config,
+    mapyApiKey,
+    zoneSubdivisionCountries,
+    immichUrl,
+    feedbackEnabled,
+    load,
+  }
 })

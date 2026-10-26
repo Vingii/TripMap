@@ -26,3 +26,6 @@ class ClientConfig(BaseModel):
     # Browser-facing Immich URL for "open in Immich" links, or empty when the
     # Immich integration is not configured (the SPA then hides it).
     immich_url: str = ""
+    # Whether the server can file feedback in YouTrack; the SPA hides the
+    # feedback form otherwise.
+    feedback_enabled: bool = False

@@ -17,6 +17,9 @@ export interface ClientConfig {
   // Browser-facing Immich URL used for "open in Immich" links; empty or absent
   // when the server has no Immich configured, which hides the integration.
   immich_url?: string
+  // Whether the server can file feedback in YouTrack; the feedback form is
+  // hidden when false or absent.
+  feedback_enabled?: boolean
 }
 
 export async function getClientConfig(): Promise<ClientConfig> {
