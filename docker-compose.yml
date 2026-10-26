@@ -51,5 +51,50 @@ services:
       timeout: 5s
       retries: 10
 
+  # --- End-to-end test stack (`--profile e2e`) -------------------------------
+  # Started by Playwright (frontend/playwright.config.ts) and fully isolated from
+  # the dev stack above: its own database on tmpfs, so every run starts empty and
+  # nothing touches dev data, seeded with the fixtures the suite relies on.
+  e2e-app:
+    profiles: [e2e]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: tripmap:e2e
+    depends_on:
+      e2e-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tripmap:tripmap@e2e-db:5432/tripmap_e2e
+      DEV_AUTH: "true"
+      # Nothing listens here: a map-click location is created without region
+      # codes instead of the suite depending on the public Nominatim instance.
+      NOMINATIM_BASE_URL: http://127.0.0.1:9
+    # The entrypoint applies migrations first, then this seeds and starts the app.
+    command:
+      - sh
+      - -c
+      - python -m app.scripts.seed_e2e && exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  e2e-db:
+    profiles: [e2e]
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: tripmap
+      POSTGRES_PASSWORD: tripmap
+      POSTGRES_DB: tripmap_e2e
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      # Over TCP: during first-time init the image runs a socket-only server
+      # that a plain pg_isready would already report as ready.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U tripmap -d tripmap_e2e"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
 volumes:
   tripmap-db-data:

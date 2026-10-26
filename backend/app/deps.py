@@ -18,7 +18,7 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 # The fixed identity every request runs as when DEV_AUTH is enabled (local dev
 # only). Stable so the same User row is reused across restarts.
-_DEV_CLAIMS = TokenClaims(sub="dev-auth|local", email="dev@localhost", name="Local Dev")
+DEV_CLAIMS = TokenClaims(sub="dev-auth|local", email="dev@localhost", name="Local Dev")
 
 
 def get_geocode_service(request: Request) -> GeocodeService:
@@ -64,7 +64,7 @@ async def get_current_user(
 ) -> User:
     # Local-dev bypass: accept every request as the fixed dev user, no token needed.
     if settings.dev_auth:
-        return await get_or_create_user(db, _DEV_CLAIMS)
+        return await get_or_create_user(db, DEV_CLAIMS)
     if credentials is None:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,

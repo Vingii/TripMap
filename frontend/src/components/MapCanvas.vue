@@ -63,6 +63,11 @@ function markerFor(location: Location): VisitedMarker {
   marker.visited = location.visited
   marker
     .bindTooltip(location.name)
+    // Leaflet makes the pin a keyboard-focusable role="button" but gives it no
+    // name; the element only exists once the marker is on the map.
+    .on('add', () => {
+      marker.getElement()?.setAttribute('aria-label', location.name)
+    })
     .on('click', (event: L.LeafletMouseEvent) => {
       // Stop the click bubbling to the map, which would open the "new
       // location" form on top of the marker we actually clicked.

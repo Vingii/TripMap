@@ -1,3 +1,5 @@
 dist
 node_modules
 src/assets/geo/*.geojson
+test-results
+playwright-report

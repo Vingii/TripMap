@@ -152,7 +152,13 @@ npm run lint                               # eslint + prettier --check
 npm run lint:fix                           # eslint --fix + prettier --write
 npm run format                             # prettier --write only
 npm run geo:build                          # regenerate bundled GeoJSON (see below)
+npm run e2e                                # Playwright end-to-end suite (see below)
+npm run e2e:headed                         # …in a visible browser
 ```
+
+#### End-to-end tests
+
+Playwright specs live in `frontend/e2e/` as `*.e2e.ts` (not `*.spec.ts`, which Vitest would collect). `npm run e2e` needs Docker and a Chromium build (`npx playwright install chromium`, once). It manages its own stack, the `e2e` Compose profile: `e2e-app` on `127.0.0.1:8001`, built from the working tree with `DEV_AUTH=true`, and `e2e-db` on tmpfs. Both containers are removed before and after every run, so each run starts from the data in `backend/app/scripts/seed_e2e.py` and never touches the dev database. Nominatim is pointed at a dead address and the browser blocks every off-host request, so the suite never depends on a third-party service. Tests run serially against that shared data: give anything a test creates a unique name (`uniqueName()` in `e2e/fixtures.ts`), and restore anything it changes. CI runs the suite after the backend and frontend jobs pass.
 
 #### Bundled map geometry
 
