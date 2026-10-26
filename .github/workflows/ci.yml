@@ -86,3 +86,59 @@ jobs:
 
       - name: Vitest
         run: npm run test:unit
+
+  e2e:
+    name: E2E (Playwright)
+    # Only worth the image build once the unit suites are green.
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # The browser build is pinned to the Playwright version, so it can be
+      # reused until the dependency is bumped.
+      - name: Cache Playwright browsers
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # No `--with-deps` / `install-deps`: the runner image ships Google Chrome,
+      # so the shared libraries are already there, and the extra packages it
+      # would add (CJK fonts, Xvfb) come from an apt mirror that has taken ten
+      # minutes to serve them. Headless runs only need the headless shell.
+      - name: Install Chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --only-shell chromium
+
+      # Builds the app image and starts the isolated `e2e` compose stack itself.
+      - name: Playwright
+        run: npm run e2e
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7

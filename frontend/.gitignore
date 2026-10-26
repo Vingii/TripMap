@@ -25,3 +25,7 @@ dist-ssr
 
 # Cached Natural Earth downloads for scripts/build-geo.mjs
 .geo-cache
+
+# Playwright
+/test-results/
+/playwright-report/
